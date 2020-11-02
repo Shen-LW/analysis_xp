@@ -1,0 +1,10 @@
+1、安装Python3.4.4。到C:/python34
+
+2、批量安装依赖；
+pip install -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
+
+3、安装pywin32。直接点击pywin32-220.win32-py3.4.exe。注意指定python目录
+
+4、安装pyQt5，直接点击PyQt5-5.5.1-gpl-Py3.4-Qt5.5.1-x32.exe，注意指定python目录
+
+3、将Pyinstaller压缩包拷贝到Python安装目录中的Scripts中（例如：C:\Python34\Scripts\）进行解压，进入解压出来的文件目录中，执行命令：python setup.py install 完成安装。
