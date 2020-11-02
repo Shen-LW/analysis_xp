@@ -1,6 +1,7 @@
 import sys
 import os
 import datetime
+import time
 import copy
 import uuid
 
@@ -8,6 +9,7 @@ import xlrd
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QColor
 # from PyQt5.QtGui import *
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication
 import pyqtgraph as pg
 from docx import Document
@@ -16,6 +18,7 @@ from docx.oxml.ns import qn
 
 from interface import Ui_MainWindow
 from crawl import crawl, crawl_test
+from myMessage import MyMessageBox, MessageReply
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -39,6 +42,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.extar_control()
         self.init_style()
         self.create_dir(['tmp', 'source'])
+        self.message_box = MyMessageBox()
 
 
     def bing_signal(self):
@@ -57,13 +61,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def init_style(self):
         # self.setWindowFlags(Qt.FramelessWindowHint)
-        logo = QtGui.QPixmap('logo.png')
-        print(logo.isNull())
-        self.logo_lable.setPixmap(logo)
-        self.logo_lable.setScaledContents(True)
-
+        logo = QtGui.QPixmap('source/logo.png')
+        self.label_3.setPixmap(logo)
+        self.label_3.setScaledContents(True)
         self.hidden_frame('data_get')
-
 
 
     def hidden_frame(self, tab):
@@ -303,7 +304,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def crawl(self):
         if not self.excel_data:
-            QMessageBox.warning(self, "参数缺失", "未导入任何爬取参数", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            self.message_box.setContent("参数缺失", "未导入任何爬取参数")
+            self.message_box.show()
+            # time.sleep(100)
+            # QMessageBox.warning(self, "参数缺失", "未导入任何爬取参数", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             return
 
         if self.crawl_status:
@@ -312,14 +316,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         self.crawl_status = True
         # 检查各个控件参数
-        url = self.url_edit.text()
         username = self.username_edit.text()
         password = self.password_edit.text()
         model = self.model_edit.text()
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
 
-        if url == '' or username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
             # QMessageBox.warning(self, "参数缺失", "请完善参数信息", QMessageBox.Yes|QMessageBox.No,QMessageBox.Yes)
             pass
 
