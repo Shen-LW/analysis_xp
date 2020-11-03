@@ -8,24 +8,14 @@ import xlrd
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QColor
 # from PyQt5.QtGui import *
-from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, QDialog
 import pyqtgraph as pg
 from PyQt5.QtWidgets import QApplication, QWidget
 
-from message_box import Ui_Form
-
-class MessageReply():
-    def __init__(self):
-        self.reply = None
-
-    def reply(self):
-        return self.reply()
-
-    def setReply(self, reply):
-        self.reply = reply
+from messageBox import Ui_Dialog
 
 
-class MyMessageBox(QWidget, Ui_Form):
+class MyMessageBox(QDialog, Ui_Dialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.reply = QMessageBox.Close
@@ -36,16 +26,14 @@ class MyMessageBox(QWidget, Ui_Form):
         self.cancel_btn.clicked.connect(self.cancel_click)
 
     def ok_click(self):
-        self.reply.setReply = QMessageBox.Ok
-        self.reply = None
+        self.reply = QMessageBox.Ok
         self.content = ""
         self.content_lable.setText(self.content)
         self.close()
 
 
     def cancel_click(self):
-        self.reply.setReply = QMessageBox.Cancel
-        self.reply = None
+        self.reply = QMessageBox.Cancel
         self.content = ""
         self.content_lable.setText(self.content)
         self.close()

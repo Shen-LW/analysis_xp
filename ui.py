@@ -10,7 +10,7 @@ from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QColor
 # from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, QHeaderView
 import pyqtgraph as pg
 from docx import Document
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
@@ -18,7 +18,7 @@ from docx.oxml.ns import qn
 
 from interface import Ui_MainWindow
 from crawl import crawl, crawl_test
-from myMessage import MyMessageBox, MessageReply
+from myMessage import MyMessageBox
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -42,7 +42,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.extar_control()
         self.init_style()
         self.create_dir(['tmp', 'source'])
-        self.message_box = MyMessageBox()
 
 
     def bing_signal(self):
@@ -143,9 +142,17 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
         self.r_widget.layout().addWidget(self.r_pw)
 
+    def resizeEvent(self, *args, **kwargs):
+        self.fileinfo_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.fileinfo_table_2.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+
+
     def choose_excel(self):
         if self.crawl_status:
-            QMessageBox.warning(self, "请等待", "请等待数据爬取完成", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            message_box = MyMessageBox()
+            message_box.setContent("请等待", "请等待数据爬取完成")
+            message_box.exec_()
             return
         fileName_choose, filetype = QtWidgets.QFileDialog.getOpenFileName(self,
                                                                           "选取文件",
@@ -304,14 +311,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def crawl(self):
         if not self.excel_data:
-            self.message_box.setContent("参数缺失", "未导入任何爬取参数")
-            self.message_box.show()
-            # time.sleep(100)
-            # QMessageBox.warning(self, "参数缺失", "未导入任何爬取参数", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            message_box = MyMessageBox()
+            message_box.setContent("参数缺失", "未导入任何爬取参数")
+            message_box.exec_()
             return
 
         if self.crawl_status:
-            QMessageBox.warning(self, "请等待", "请等待数据爬取完成", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            message_box = MyMessageBox()
+            message_box.setContent("请等待", "请等待数据爬取完成")
+            message_box.exec_()
             return
 
         self.crawl_status = True
@@ -375,8 +383,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
     # 标签页切换
     def select_tab(self, tab_type):
         if self.crawl_status:
-            QMessageBox.warning(self, "请等待", "请等待数据爬取完成", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-            self.tabWidget.setCurrentIndex(0)
+            message_box = MyMessageBox()
+            message_box.setContent("请等待", "请等待数据爬取完成")
+            message_box.exec_()
             return
         self.hidden_frame(tab_type)
 
@@ -433,9 +442,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.r_plot_data.setData(y, pen=pg.mkPen('r', width=1))
 
     def save_chaneg(self):
-        message_result = QMessageBox.warning(self, "请等待", "确定修改数据", QMessageBox.Yes | QMessageBox.No,
-                                             QMessageBox.Yes)
-        if message_result == QMessageBox.Yes:
+        message_box = MyMessageBox()
+        message_box.setContent("提示", "确定修改数据")
+        message_box.exec_()
+
+        if message_box.reply == QMessageBox.Ok:
             self.manual_item["data"] = self.choice_data
             index = self.fileinfo_table_2.currentIndex().row()
             self.fileinfo_table_2.setItem(index-1, 1, QTableWidgetItem("手动剔野"))
@@ -452,21 +463,25 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 object_name = str(i) + '_select'
                 checkbox = self.findChild(QCheckBox, object_name)
                 checkbox.setChecked(True)
+                self.select_indexs.append(i)
             self.select_all_btn.setText('取消全选')
+            self.select_indexs = list(set(self.select_indexs))
         elif self.select_all_btn.text() == '取消全选':
             for i in range(number):
                 object_name = str(i) + '_select'
                 checkbox = self.findChild(QCheckBox, object_name)
                 checkbox.setChecked(False)
             self.select_all_btn.setText('全选')
+            self.select_indexs = []
         QApplication.processEvents()
 
 
 
     def auto_choice(self):
         if not self.select_indexs:
-            message_result = QMessageBox.warning(self, "自动剔野", "请勾选自动剔野项", QMessageBox.Yes | QMessageBox.No,
-                                                 QMessageBox.Yes)
+            message_box = MyMessageBox()
+            message_box.setContent("自动剔野", "请勾选自动剔野项")
+            message_box.exec_()
             return
 
         tmp_data = {}
@@ -513,7 +528,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.item(int(index), 1).setBackground(QColor(100, 255, 0))
             QApplication.processEvents()
 
-        QMessageBox.information(self, "自动剔野", "自动剔野已完成", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        message_box = MyMessageBox()
+        message_box.setContent("自动剔野", "自动剔野已完成")
+        message_box.exec_()
 
     def source_choice(self, source_data_dict):
         # {"index": "value"}
@@ -671,7 +688,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
         reportname = datetime.datetime.now().strftime('%Y%m%d%H%M') + '.docx'
         report = reportname
         document.save(report)
-        QMessageBox.information(self, "生成表格", "word文档生成成功", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+
+        message_box = MyMessageBox()
+        message_box.setContent("生成表格", "word文档生成成功")
+        message_box.exec_()
 
 
     def create_table1_data(self):
