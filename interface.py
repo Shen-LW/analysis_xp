@@ -20,7 +20,9 @@ class Ui_MainWindow(object):
         self.verticalLayout.setObjectName("verticalLayout")
         self.frame_5 = QtWidgets.QFrame(self.centralwidget)
         self.frame_5.setMinimumSize(QtCore.QSize(0, 80))
-        self.frame_5.setStyleSheet("background-color: rgb(69, 90, 179);")
+        self.frame_5.setStyleSheet("background-color: rgb(69, 90, 179);\n"
+"border-top-left-radius:15px;\n"
+"border-top-right-radius:15px;")
         self.frame_5.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.frame_5.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame_5.setObjectName("frame_5")
@@ -51,14 +53,20 @@ class Ui_MainWindow(object):
         self.choice_btn.setObjectName("choice_btn")
         self.label_3 = QtWidgets.QLabel(self.frame_5)
         self.label_3.setGeometry(QtCore.QRect(30, 20, 350, 40))
-        self.label_3.setStyleSheet("border-width: 1px;border-style: solid;")
+        self.label_3.setStyleSheet("border-width: 1px;border-style: solid;\n"
+"border-top-left-radius:0px;\n"
+"border-top-right-radius:0px;")
         self.label_3.setObjectName("label_3")
+        self.graphicsView = QtWidgets.QGraphicsView(self.frame_5)
+        self.graphicsView.setGeometry(QtCore.QRect(100, 10, 256, 192))
+        self.graphicsView.setObjectName("graphicsView")
         self.verticalLayout.addWidget(self.frame_5)
         self.frame = QtWidgets.QFrame(self.centralwidget)
         self.frame.setEnabled(True)
-        self.frame.setMinimumSize(QtCore.QSize(0, 220))
-        self.frame.setMaximumSize(QtCore.QSize(16777215, 240))
-        self.frame.setStyleSheet("margin: 0px;")
+        self.frame.setMinimumSize(QtCore.QSize(0, 180))
+        self.frame.setMaximumSize(QtCore.QSize(16777215, 180))
+        self.frame.setStyleSheet("margin: 0px;\n"
+"border-width: 1px;border-style: solid;")
         self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame.setObjectName("frame")
@@ -134,8 +142,10 @@ class Ui_MainWindow(object):
         self.label_4.setStyleSheet("border:0px;font: 10pt \"Microsoft YaHei UI\";")
         self.label_4.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.label_4.setObjectName("label_4")
-        self.label_2 = QtWidgets.QLabel(self.frame)
-        self.label_2.setGeometry(QtCore.QRect(10, 170, 101, 31))
+        self.verticalLayout.addWidget(self.frame)
+        self.label_2 = QtWidgets.QLabel(self.centralwidget)
+        self.label_2.setMinimumSize(QtCore.QSize(120, 50))
+        self.label_2.setMaximumSize(QtCore.QSize(120, 50))
         font = QtGui.QFont()
         font.setFamily("Microsoft YaHei UI")
         font.setPointSize(14)
@@ -145,9 +155,10 @@ class Ui_MainWindow(object):
         self.label_2.setFont(font)
         self.label_2.setStyleSheet("color:#455ab3;\n"
 "font: 75 14pt \"Microsoft YaHei UI\";\n"
-"border:0px;")
+"border:0px;\n"
+"margin: 8px;")
         self.label_2.setObjectName("label_2")
-        self.verticalLayout.addWidget(self.frame)
+        self.verticalLayout.addWidget(self.label_2)
         self.fileinfo_table = QtWidgets.QTableWidget(self.centralwidget)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)

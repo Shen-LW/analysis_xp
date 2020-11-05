@@ -10,7 +10,7 @@ from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QColor
 # from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, QHeaderView
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, QHeaderView, QAbstractItemView, QWidget
 import pyqtgraph as pg
 from docx import Document
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
@@ -60,6 +60,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def init_style(self):
         # self.setWindowFlags(Qt.FramelessWindowHint)
+        # self.fileinfo_table_2.setSelectionBehavior(QAbstractItemView.SelectRows);
+
         logo = QtGui.QPixmap('source/logo.png')
         self.label_3.setPixmap(logo)
         self.label_3.setScaledContents(True)
@@ -126,7 +128,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 左边框
         l_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
         self.l_widget.setLayout(l_plot_layout)  # 设置K线图部件的布局层
-        self.l_pw = pg.PlotWidget(self)  # 创建一个绘图控件
+        l_date_axis = TimeAxisItem(orientation='bottom')
+        self.l_pw = pg.PlotWidget(self, axisItems={'bottom': l_date_axis})  # 创建一个绘图控件
         self.l_pw.showGrid(x=True, y=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
         self.l_widget.layout().addWidget(self.l_pw)
@@ -134,7 +137,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 右边框
         r_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
         self.r_widget.setLayout(r_plot_layout)  # 设置K线图部件的布局层
-        self.r_pw = pg.PlotWidget(self)  # 创建一个绘图控件
+        r_date_axis = TimeAxisItem(orientation='bottom')
+        self.r_pw = pg.PlotWidget(self, axisItems={'bottom': r_date_axis})  # 创建一个绘图控件
         self.r_pw.showGrid(x=True, y=True)
         self.region = pg.LinearRegionItem()
         self.region.setRegion([0, 0])
@@ -354,6 +358,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.update_talbe2()
 
     def manual_choice(self, r):
+        self.fileinfo_table_2.selectRow(r)
         self.manual_item = self.excel_data[r]
         self.choice_data = copy.deepcopy(self.manual_item["data"])
         self.undo_list = []
@@ -363,11 +368,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
         l_x, l_y = self.get_choice_data_xy(raw)
         r_x, r_y = self.get_choice_data_xy()
         if self.l_plot_data == None:
-            self.l_plot_data = self.l_pw.plot(l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
-            self.r_plot_data = self.r_pw.plot(r_y, pen=pg.mkPen('r', width=1))
+            self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
+            self.r_plot_data = self.r_pw.plot(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
         else:
-            self.l_plot_data.setData(l_y, pen=pg.mkPen('g', width=1))
-            self.r_plot_data.setData(r_y, pen=pg.mkPen('r', width=1))
+            self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
+            self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
 
         self.region.setRegion([0,0])
         self.hidden_frame('choice')
@@ -390,11 +395,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.hidden_frame(tab_type)
 
 
-
     def edit_model(self):
-        data_len = len(self.manual_item["data"])
-        middle = int(data_len / 2)
-        w = 1 if int(data_len / 10) == 0 else int(data_len / 10)
+        l_x, l_y = self.get_choice_data_xy()
+        a = l_x[0]
+        b = l_x[-1]
+        middle = int((a + b) / 2)
+        w = int((b - a) / 6)
+        w = 1 if w == 0 else w
         self.region.setRegion([middle - w, middle + w])
 
     def get_choice_data_xy(self, raw_data=None):
@@ -408,7 +415,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         for item in data:
             for k, v in item.items():
                 if k == "T0":
-                    x.append(v)
+                    x.append(self.timestr2timestamp(v))
                 else:
                     y.append(float(v))
         return x, y
@@ -419,27 +426,35 @@ class UiTest(QMainWindow, Ui_MainWindow):
         minX, maxX = self.region.getRegion()
 
         minX = 0 if minX < 0 else int(minX)
-        c_len = len(self.choice_data)
-        maxX = c_len if maxX > c_len else int(maxX)
+        # c_len = len(self.choice_data)
+        # maxX = c_len if maxX > c_len else int(maxX)
 
         undo_data = copy.deepcopy(self.choice_data)
         self.undo_list.append(undo_data)
 
         # 修改数据
-        for i in range(minX, maxX):
-            item = self.choice_data[i]
+        for item in self.choice_data:
+            # 时间判断
+            time_str = item["T0"]
+            f = self.timestr2timestamp(time_str)
+            if f >= minX and f <= maxX:
+                flag = True
+            else:
+                flag = False
+
             for k, v in item.items():
-                if k != "T0":
+                if k != "T0" and flag==True:
                     item[k] = 0
+
         x, y = self.get_choice_data_xy()
-        self.r_plot_data.setData(y, pen=pg.mkPen('r', width=1))
+        self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
 
     def delete_undo(self):
         if self.undo_list:
             self.choice_data = self.undo_list.pop()
             x, y = self.get_choice_data_xy()
-            self.r_plot_data.setData(y, pen=pg.mkPen('r', width=1))
+            self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
     def save_chaneg(self):
         message_box = MyMessageBox()
@@ -449,11 +464,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if message_box.reply == QMessageBox.Ok:
             self.manual_item["data"] = self.choice_data
             index = self.fileinfo_table_2.currentIndex().row()
-            self.fileinfo_table_2.setItem(index-1, 1, QTableWidgetItem("手动剔野"))
-            self.fileinfo_table_2.item(index-1, 1).setBackground(QColor(100, 255, 0))
-            QApplication.processEvents()
+            self.fileinfo_table_2.setItem(index, 1, QTableWidgetItem("手动剔野"))
+            self.fileinfo_table_2.item(index, 1).setBackground(QColor(100, 255, 0))
             self.region.setZValue(0)
             self.hidden_frame('data_analysis')
+            QApplication.processEvents()
 
 
     def select_all(self):
@@ -749,8 +764,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         return file_name
 
 
-
-
     def get_data_range(self, data):
         value_list = []
         for item in data:
@@ -761,6 +774,16 @@ class UiTest(QMainWindow, Ui_MainWindow):
         maxX = max(value_list)
         return [minX, maxX]
 
+    def timestr2timestamp(self, timestr):
+        datetime_obj = datetime.datetime.strptime(timestr, "%Y-%m-%d %H:%M:%S.%f")
+        ret_stamp = int(time.mktime(datetime_obj.timetuple()) * 1000.0 + datetime_obj.microsecond / 1000.0)
+        return ret_stamp / 1000
+
+
+
+class TimeAxisItem(pg.AxisItem):
+    def tickStrings(self, values, scale, spacing):
+        return [datetime.datetime.fromtimestamp(value) for value in values]
 
 
 if __name__ == '__main__':
