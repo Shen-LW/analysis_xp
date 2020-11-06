@@ -75,6 +75,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if tab == "data_get":
             self.frame.setHidden(False)
             self.fileinfo_table.setHidden(False)
+            self.label_2.setHidden(False)
 
             self.frame_2.setHidden(True)
             self.fileinfo_table_2.setHidden(True)
@@ -90,6 +91,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         elif tab == 'data_analysis':
             self.frame.setHidden(True)
             self.fileinfo_table.setHidden(True)
+            self.label_2.setHidden(True)
 
             self.frame_2.setHidden(False)
             self.fileinfo_table_2.setHidden(False)
@@ -106,6 +108,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         elif tab == 'choice':
             self.frame.setHidden(True)
             self.fileinfo_table.setHidden(True)
+            self.label_2.setHidden(True)
 
             self.frame_2.setHidden(True)
             self.fileinfo_table_2.setHidden(True)
