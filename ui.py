@@ -10,8 +10,10 @@ from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QColor, QIcon
 # from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, QHeaderView, QAbstractItemView, QWidget
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, \
+    QHeaderView, QAbstractItemView, QWidget
 import pyqtgraph as pg
+from pyqtgraph.exporters import ImageExporter
 from docx import Document
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.oxml.ns import qn
@@ -44,7 +46,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.init_style()
         self.create_dir(['tmp', 'source'])
 
-
     def bing_signal(self):
         self.upload_excel_btn.clicked.connect(self.choose_excel)
         self.crawl_btn.clicked.connect(self.crawl)
@@ -66,7 +67,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.label_3.setPixmap(logo)
         self.label_3.setScaledContents(True)
         self.hidden_frame('data_get')
-
 
     def hidden_frame(self, tab):
         style_1 = 'font: 75 12pt "微软雅黑";background-color: rgb(255, 255, 255);color:#455ab3;border-top-left-radius:15px;border-top-right-radius:15px;'
@@ -123,7 +123,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if not os.path.exists(path):
                 os.makedirs(path)
 
-
     def extar_control(self):
         # 左边框
         l_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
@@ -149,8 +148,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def resizeEvent(self, *args, **kwargs):
         self.fileinfo_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.fileinfo_table_2.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-
 
     def choose_excel(self):
         if self.crawl_status:
@@ -374,16 +371,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
             self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
 
-        self.region.setRegion([0,0])
+        self.region.setRegion([0, 0])
         self.hidden_frame('choice')
-
 
     def select_row(self, r):
         if r in self.select_indexs:
             self.select_indexs.remove(r)
         else:
             self.select_indexs.append(r)
-
 
     # 标签页切换
     def select_tab(self, tab_type):
@@ -393,7 +388,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
         self.hidden_frame(tab_type)
-
 
     def edit_model(self):
         l_x, l_y = self.get_choice_data_xy()
@@ -443,12 +437,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 flag = False
 
             for k, v in item.items():
-                if k != "T0" and flag==True:
+                if k != "T0" and flag == True:
                     item[k] = 0
 
         x, y = self.get_choice_data_xy()
         self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
-
 
     def delete_undo(self):
         if self.undo_list:
@@ -470,7 +463,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.hidden_frame('data_analysis')
             QApplication.processEvents()
 
-
     def select_all(self):
         number = len(self.raw_data)
         if self.select_all_btn.text() == '全选':
@@ -489,8 +481,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.select_all_btn.setText('全选')
             self.select_indexs = []
         QApplication.processEvents()
-
-
 
     def auto_choice(self):
         if not self.select_indexs:
@@ -632,8 +622,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         document.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
         document.add_heading('1.XXXX卫星' + start_y + '年' + start_m + '月' + '至' + end_m + '月在轨维护报告', 0)
         # 标题一简介
-        intr =''.join(["        ", start_y, '年', start_m, '月',start_d, '日至', end_y,'年', end_m,'月',  end_d, '日',
-                       'XXXX卫星在轨运行状态正常，卫星运行在XXXX模式，所查询数据均在安全范围以内，', error_text, '具体情况见表1 在轨遥测数据监视情况记录表，和表2在轨状态位变化情况记录表。'])
+        intr = ''.join(["        ", start_y, '年', start_m, '月', start_d, '日至', end_y, '年', end_m, '月', end_d, '日',
+                        'XXXX卫星在轨运行状态正常，卫星运行在XXXX模式，所查询数据均在安全范围以内，', error_text,
+                        '具体情况见表1 在轨遥测数据监视情况记录表，和表2在轨状态位变化情况记录表。'])
         document.add_paragraph(intr)
 
         # 添加表格一
@@ -682,7 +673,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             h_cells[3].text = status_bit
             h_cells[4].text = state_change
 
-
         document.add_heading('1.1 XXXX卫星控制系统性能在轨状况', level=1)
         # 生成图片
         for item in self.excel_data:
@@ -699,7 +689,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         document.add_heading('总结', level=1)
 
-
         reportname = datetime.datetime.now().strftime('%Y%m%d%H%M') + '.docx'
         report = reportname
         document.save(report)
@@ -707,7 +696,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         message_box = MyMessageBox()
         message_box.setContent("生成表格", "word文档生成成功")
         message_box.exec_()
-
 
     def create_table1_data(self):
         data = []
@@ -725,7 +713,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             else:
                 error_number = error_number + 1
                 range_status = "异常"
-            child = (index, item['telemetry_name'], item["telemetry_num"], str(parms_range), str(normal_range), range_status)
+            child = (
+            index, item['telemetry_name'], item["telemetry_num"], str(parms_range), str(normal_range), range_status)
             data.append(child)
         return error_number, tuple(data)
         # data = (
@@ -743,26 +732,29 @@ class UiTest(QMainWindow, Ui_MainWindow):
         )
         return date
 
-
-
     def create_docx_image(self, data):
-        y_list = []
+        x = []
+        y = []
         for item in data:
             for k, v in item.items():
-                if k != "T0":
-                    y_list.append(v)
+                if k == "T0":
+                    x.append(self.timestr2timestamp(v))
+                else:
+                    y.append(float(v))
         # pw = pg.PlotWidget(self)  # 创建一个绘图控件
         # pw.showGrid(x=True, y=True)
         # pw.plot(y_list)
-        plt = pg.plot(y_list, pen=pg.mkPen('r', width=1))
-        exporter = pg.exporters.ImageExporter(plt.plotItem)
+        date_axis = TimeAxisItem(orientation='bottom')
+        plt = pg.plot(axisItems={'bottom': date_axis})
+        plt.plot(y=y, pen=pg.mkPen('r', width=1))
+
+        exporter = ImageExporter(plt.plotItem)
         exporter.parameters()['width'] = 800
         exporter.parameters()['height'] = 400
 
         file_name = 'tmp/' + str(uuid.uuid1()).replace('-', '') + '.png'
         exporter.export(file_name)
         return file_name
-
 
     def get_data_range(self, data):
         value_list = []
@@ -778,7 +770,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         datetime_obj = datetime.datetime.strptime(timestr, "%Y-%m-%d %H:%M:%S.%f")
         ret_stamp = int(time.mktime(datetime_obj.timetuple()) * 1000.0 + datetime_obj.microsecond / 1000.0)
         return ret_stamp / 1000
-
 
 
 class TimeAxisItem(pg.AxisItem):
