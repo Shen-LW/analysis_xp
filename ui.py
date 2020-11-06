@@ -4,6 +4,7 @@ import datetime
 import time
 import copy
 import uuid
+import collections
 
 import xlrd
 from PyQt5 import QtWidgets, QtGui
@@ -336,9 +337,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
             pass
 
         # 循环爬取
+        # 测试，使用相同数据
+        is_ok, data = crawl_test(model, "", create_time, end_time)
         for item in self.excel_data:
             index = self.excel_data.index(item)
-            is_ok, data = crawl_test(model, item['telemetry_name'], create_time, end_time)
+            time.sleep(0.3)
+            # is_ok, data = crawl_test(model, item['telemetry_name'], create_time, end_time)
             if is_ok:
                 item["data"] = data
                 self.fileinfo_table.setItem(index, 0, QTableWidgetItem("爬取成功"))
@@ -489,7 +493,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
 
-        tmp_data = {}
+        tmp_data = collections.OrderedDict()
         for i in range(len(self.excel_data)):
             if i in self.select_indexs:
                 tmp_data[str(i)] = copy.deepcopy(self.excel_data[i])
@@ -497,7 +501,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 修改data组合方式，按键值对重新组合数据，键为时间
         for index, value in tmp_data.items():
             data = value["data"]
-            new_dict = {}
+            new_dict = collections.OrderedDict()
             for item in data:
                 for k, v in item.items():
                     if k != "T0":
@@ -507,12 +511,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         # 源包剔野
         # source = {"source": {"index": "value"}}
-        source_type = {}
+        source_type = collections.OrderedDict()
         for index, value in tmp_data.items():
             if not self.check_choice("source", value["params_four"]):
                 continue
             if value["telemetry_source"] not in source_type.keys():
-                source_type[value["telemetry_source"]] = {}
+                source_type[value["telemetry_source"]] = collections.OrderedDict()
             source_type[value["telemetry_source"]][index] = value
         for type, value in source_type.items():
             self.source_choice(value)
