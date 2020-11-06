@@ -28,7 +28,7 @@ class Ui_Dialog(object):
         self.ok_btn.setGeometry(QtCore.QRect(110, 180, 100, 38))
         self.ok_btn.setStyleSheet("font: 10pt \"Microsoft YaHei UI\";\n"
 "color:#fff;\n"
-"background-color: rgb(20, 255, 35);\n"
+"background-color:#455ab3;color:#fff;\n"
 "border-radius:10px;")
         self.ok_btn.setObjectName("ok_btn")
 

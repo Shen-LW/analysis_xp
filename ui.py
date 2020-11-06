@@ -7,7 +7,7 @@ import uuid
 
 import xlrd
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QIcon
 # from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, QHeaderView, QAbstractItemView, QWidget
@@ -19,6 +19,7 @@ from docx.oxml.ns import qn
 from interface import Ui_MainWindow
 from crawl import crawl, crawl_test
 from myMessage import MyMessageBox
+import source.logo
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -61,7 +62,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def init_style(self):
         # self.setWindowFlags(Qt.FramelessWindowHint)
         # self.fileinfo_table_2.setSelectionBehavior(QAbstractItemView.SelectRows);
-
         logo = QtGui.QPixmap('source/logo.png')
         self.label_3.setPixmap(logo)
         self.label_3.setScaledContents(True)

@@ -68,7 +68,7 @@ border-radius:10px;</string>
    <property name="styleSheet">
     <string notr="true">font: 10pt &quot;Microsoft YaHei UI&quot;;
 color:#fff;
-background-color: rgb(20, 255, 35);
+background-color:#455ab3;color:#fff;
 border-radius:10px;</string>
    </property>
    <property name="text">
