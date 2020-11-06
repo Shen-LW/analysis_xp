@@ -608,6 +608,16 @@ class UiTest(QMainWindow, Ui_MainWindow):
         return False
 
     def report_excel(self):
+        # 选择路径与文件名
+        reportname = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y%m%d%H%M') + '.docx')
+        fileName_choose, filetype = QtWidgets.QFileDialog.getSaveFileName(self,
+                                                                          "导出文件",
+                                                                          reportname,  # 起始路径
+                                                                          "Execl Files (*.docx;)")  # 设置文件扩展名过滤,用双分号间隔
+        if fileName_choose == "":
+            return
+
+
         # 准备数据
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
@@ -696,9 +706,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         document.add_heading('总结', level=1)
 
-        reportname = datetime.datetime.now().strftime('%Y%m%d%H%M') + '.docx'
-        report = reportname
-        document.save(report)
+        document.save(fileName_choose)
 
         message_box = MyMessageBox()
         message_box.setContent("生成表格", "word文档生成成功")
