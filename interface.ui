@@ -109,22 +109,12 @@ border-top-right-radius:15px;</string>
         </rect>
        </property>
        <property name="styleSheet">
-        <string notr="true">border-width: 1px;border-style: solid;
+        <string notr="true">borde1r-width: 1px;border-style: solid;
 border-top-left-radius:0px;
 border-top-right-radius:0px;</string>
        </property>
        <property name="text">
         <string>TextLabel</string>
-       </property>
-      </widget>
-      <widget class="QGraphicsView" name="graphicsView">
-       <property name="geometry">
-        <rect>
-         <x>100</x>
-         <y>10</y>
-         <width>256</width>
-         <height>192</height>
-        </rect>
        </property>
       </widget>
      </widget>

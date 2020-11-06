@@ -33,7 +33,7 @@ class Ui_MainWindow(object):
 "background-color: rgb(255, 255, 255);\n"
 "color:#455ab3;\n"
 "border-top-left-radius:15px;\n"
-"border-top-right-radius:15px;")
+"border-top-right-radius:15px")
         self.data_get_btn.setObjectName("data_get_btn")
         self.data_analysis_btn = QtWidgets.QPushButton(self.frame_5)
         self.data_analysis_btn.setGeometry(QtCore.QRect(570, 30, 141, 51))
@@ -53,13 +53,10 @@ class Ui_MainWindow(object):
         self.choice_btn.setObjectName("choice_btn")
         self.label_3 = QtWidgets.QLabel(self.frame_5)
         self.label_3.setGeometry(QtCore.QRect(30, 20, 350, 40))
-        self.label_3.setStyleSheet("border-width: 1px;border-style: solid;\n"
+        self.label_3.setStyleSheet("borde1r-width: 1px;border-style: solid;\n"
 "border-top-left-radius:0px;\n"
 "border-top-right-radius:0px;")
         self.label_3.setObjectName("label_3")
-        self.graphicsView = QtWidgets.QGraphicsView(self.frame_5)
-        self.graphicsView.setGeometry(QtCore.QRect(100, 10, 256, 192))
-        self.graphicsView.setObjectName("graphicsView")
         self.verticalLayout.addWidget(self.frame_5)
         self.frame = QtWidgets.QFrame(self.centralwidget)
         self.frame.setEnabled(True)
