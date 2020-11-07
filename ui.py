@@ -406,19 +406,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.region.setRegion([middle - w, middle + w])
 
     def get_choice_data_xy(self, raw_data=None):
-        x = []
-        y = []
         if raw_data == None:
             data = self.choice_data
         else:
             data = raw_data
-
-        for item in data:
-            for k, v in item.items():
-                if k == "T0":
-                    x.append(self.timestr2timestamp(v))
-                else:
-                    y.append(float(v))
+        x = []
+        y = []
+        for k, v in data.items():
+            x.append(self.timestr2timestamp(k))
+            y.append(float(v))
         return x, y
 
     # 删除数据
@@ -434,18 +430,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.undo_list.append(undo_data)
 
         # 修改数据
-        for item in self.choice_data:
+        for time_str, v in self.choice_data.items():
             # 时间判断
-            time_str = item["T0"]
             f = self.timestr2timestamp(time_str)
             if f >= minX and f <= maxX:
-                flag = True
-            else:
-                flag = False
-
-            for k, v in item.items():
-                if k != "T0" and flag == True:
-                    item[k] = 0
+                self.choice_data[time_str] = 0
 
         x, y = self.get_choice_data_xy()
         self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
@@ -500,17 +489,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         for i in range(len(self.excel_data)):
             if i in self.select_indexs:
                 tmp_data[str(i)] = copy.deepcopy(self.excel_data[i])
-
-        # 修改data组合方式，按键值对重新组合数据，键为时间
-        for index, value in tmp_data.items():
-            data = value["data"]
-            new_dict = collections.OrderedDict()
-            for item in data:
-                for k, v in item.items():
-                    if k != "T0":
-                        new_dict[item["T0"]] = v
-                        break
-            value["data"] = new_dict
 
         # 源包剔野
         # source = {"source": {"index": "value"}}
@@ -572,8 +550,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
                     item['data'][t] = 0
 
         for index, v in source_data_dict.items():
-            new_data = [{"T0": k, "V02317575": v} for k, v in v['data'].items()]
-            self.excel_data[int(k)]['data'] = new_data
+            self.excel_data[int(k)]['data'] = v['data']
 
     def threshold_choice(self, index, value):
         data = value['data']
@@ -585,9 +562,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if float(v) > float(threshold[1]) or float(v) < float(threshold[0]):
                 value['data'][t] = 0
 
-        new_data_list = [{"T0": k, "V02317575": v} for k, v in value['data'].items()]
-
-        self.excel_data[int(index)]['data'] = new_data_list
+        self.excel_data[int(index)]['data'] = value['data']
 
     def rate_choice(self, index, data):
         pass
@@ -750,12 +725,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def create_docx_image(self, data):
         x = []
         y = []
-        for item in data:
-            for k, v in item.items():
-                if k == "T0":
-                    x.append(self.timestr2timestamp(v))
-                else:
-                    y.append(float(v))
+        for k, v in data.items():
+            x.append(self.timestr2timestamp(k))
+            y.append(float(v))
+
         # pw = pg.PlotWidget(self)  # 创建一个绘图控件
         # pw.showGrid(x=True, y=True)
         # pw.plot(y_list)
@@ -772,11 +745,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         return file_name
 
     def get_data_range(self, data):
-        value_list = []
-        for item in data:
-            for k, v in item.items():
-                if k != "T0":
-                    value_list.append(v)
+        value_list = list(data.values())
         minX = min(value_list)
         maxX = max(value_list)
         return [minX, maxX]

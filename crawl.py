@@ -6,7 +6,7 @@ import json
 import time
 import random
 import datetime
-
+import collections
 
 def get_cookie():
     url = 'http://www.ygzx.cast/db/login/login.edq'
@@ -4207,7 +4207,24 @@ def crawl_test(model_name, telemetry_name, start_time, end_time):
     for i in range(50):
         index = random.randint(0, 999)
         items[index]['V02317575'] = random.randint(-30, 30) / 100
+
+    items = parse_data(items)
     return True, items
+
+
+def parse_data(items):
+    new_items = collections.OrderedDict()
+    for item in items:
+        new_k = ''
+        new_v = 0.0
+        for k,v in item.items():
+            if type(v)==float:
+                new_v = v
+            else:
+                new_k = v
+        new_items[new_k] = new_v
+    return new_items
+
 
 
 if __name__ == '__main__':
