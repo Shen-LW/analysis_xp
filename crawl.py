@@ -7,12 +7,14 @@ import time
 import random
 import datetime
 import collections
+import demjson
 
-def get_cookie():
+
+def get_cookie(username, password):
     url = 'http://www.ygzx.cast/db/login/login.edq'
     data = {
-        'loginid': 'liuweijie@c502.cast',  # name
-        'password': '123456'  # password
+        'loginid': username,  # name
+        'password': password  # password
     }
     headers = {
         'Referer': 'http://www.ygzx.cast/db/',
@@ -45,13 +47,7 @@ def crawl_menu(cookie, date_stamp):
     # print('写入ment.json成功')
     modellist = []
     items = json.loads(r.text.replace("nodes", '"nodes"'))
-    for item in items['nodes']:
-        # 切换model_name
-        if item['name'] == 'BD3M01':  # modelname
-            modellist.append(item['name'])
-            modellist.append(item['mid'])
-            modellist.append(item['sys_resource_id'])
-    return modellist
+    return items['nodes']
 
 
 # 是否翻页需要测试
@@ -80,11 +76,7 @@ def find_grant(date_stamp, cookie, sat_id):
     # print('写入search.json成功')
     numlist = []
     items = r.json()
-    for item in items['records']:
-        # todo 这里写死的到底是什么意思？？
-        if item['name'] == '相控阵天线指向计算使用姿态数据的滚动角' and item['code'] == 'RDSJ044':
-            numlist.append(item['num'])
-    return numlist
+    return items['records']
 
 
 def crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time):
@@ -117,14 +109,16 @@ def crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, 
     post_url = 'http://www.ygzx.cast/db/tmdata/tmdata.edq'
     while 1:
         res = requests.post(url=post_url, headers=menu_headers, data=form_data)
-        count = res.json()['count']
-        items = res.json()['items']
-        data.append(items)
+        r_json = demjson.decode(res.text)
+        count = r_json['count']
+        items = r_json['items']
+        data = data + items
         if count == 0 or count < limit:
             break
         else:
             # 获取结尾时间
             new_start_time = items[-1]["create_time"]
+            new_start_time = new_start_time.replace('-', '').replace(' ', '').replace(':', '').replace('.', '')
             form_data["tmParamStr"] = str(new_start_time) + '|' + str(end_time) + "|" + str(mid) + "&" + str(
                 telemetry_num) + '&' + str(telemetry_id) + '&0|'
 
@@ -168,26 +162,31 @@ def crawldata_other(cookie):
         print(path, "写入成功")
 
 
-def crawl(model_name, telemetry_name, start_time, end_time):
-    cookie = get_cookie()
+def crawl(username, password, model_name, telemetry_name, start_time, end_time):
+    start_time = trans_time(start_time)
+    end_time = trans_time(end_time)
+    cookie = get_cookie(username, password)
     date_stamp = int(time.time() * 1000)
     # 解析型号名称
     modellist = crawl_menu(cookie, date_stamp)
     mid = None
+    sys_resource_id = None
     for item in modellist:
         if item["name"] == model_name:
-            mid = item["mid"]
+            mid = item['mid']
+            sys_resource_id = item["sys_resource_id"]
             break
     else:
         return False, None
     # 解析遥测代号
     telemetry_id = None
     telemetry_num = None
-    numlist = find_grant(date_stamp, cookie, mid)
+    numlist = find_grant(date_stamp, cookie, sys_resource_id)
     for item in numlist:
         if item["name"] == telemetry_name:
             telemetry_id = item["id"]
             telemetry_num = item["num"]
+            break
     else:
         return False, None
     # 实际爬取数据
@@ -4217,14 +4216,25 @@ def parse_data(items):
     for item in items:
         new_k = ''
         new_v = 0.0
-        for k,v in item.items():
-            if type(v)==float:
+        for k, v in item.items():
+            if type(v) == float:
                 new_v = v
             else:
                 new_k = v
         new_items[new_k] = new_v
     return new_items
 
+
+def trans_time(time_str):
+    # "20201014093500000"
+    l = time_str.split(" ")
+    s = l[1].split(":")
+    d = l[0].replace('/', '').replace("-", '')
+    h = s[0] if len(s[0]) == 2 else '0' + s[0]
+    m = s[1]
+    s = '00000'
+    new_time = d + h + m + s
+    return new_time
 
 
 if __name__ == '__main__':

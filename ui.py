@@ -345,7 +345,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         for item in self.excel_data:
             index = self.excel_data.index(item)
             time.sleep(0.3)
-            # is_ok, data = crawl_test(model, item['telemetry_name'], create_time, end_time)
+            # is_ok, data = crawl(username, password, model, item['telemetry_name'], create_time, end_time)
             if is_ok:
                 item["data"] = data
                 self.fileinfo_table.setItem(index, 0, QTableWidgetItem("爬取成功"))
