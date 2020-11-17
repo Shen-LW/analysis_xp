@@ -8,7 +8,7 @@ import collections
 
 import xlrd
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtGui import QColor, QIcon
+from PyQt5.QtGui import QColor, QIcon, QMouseEvent
 # from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, \
@@ -22,7 +22,7 @@ from docx.oxml.ns import qn
 from interface import Ui_MainWindow
 from crawl import crawl, crawl_test
 from myMessage import MyMessageBox
-import source.logo
+from MyPlotWidget import MyPlotWidget
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -32,6 +32,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def __init__(self, parent=None):
         super(UiTest, self).__init__(parent)
+        self.region = pg.RectROI([0, 0], [0, 0], pen=pg.mkPen('g', width=1))  # 框选
         self.raw_data = []  # 爬取的原始数据
         self.excel_data = []  # 所有excel爬取的数据, 修改记录在这里
         self.manual_item = {}  # 当前操作的数据
@@ -106,6 +107,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.choice_btn.setStyleSheet(style_2)
 
         elif tab == 'choice':
+            if not self.manual_item:
+                message_box = MyMessageBox()
+                message_box.setContent("暂无数据", "请先选择要填充的数据")
+                message_box.exec_()
+                return
+
             self.frame.setHidden(True)
             self.fileinfo_table.setHidden(True)
             self.label_2.setHidden(True)
@@ -132,7 +139,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         l_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
         self.l_widget.setLayout(l_plot_layout)  # 设置K线图部件的布局层
         l_date_axis = TimeAxisItem(orientation='bottom')
-        self.l_pw = pg.PlotWidget(self, axisItems={'bottom': l_date_axis})  # 创建一个绘图控件
+        # self.l_pw = pg.PlotWidget(self, axisItems={'bottom': l_date_axis})  # 创建一个绘图控件
+        self.l_pw = MyPlotWidget(self, axisItems={'bottom': l_date_axis})  # 创建一个绘图控件
         self.l_pw.showGrid(x=True, y=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
         self.l_widget.layout().addWidget(self.l_pw)
@@ -141,13 +149,18 @@ class UiTest(QMainWindow, Ui_MainWindow):
         r_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
         self.r_widget.setLayout(r_plot_layout)  # 设置K线图部件的布局层
         r_date_axis = TimeAxisItem(orientation='bottom')
-        self.r_pw = pg.PlotWidget(self, axisItems={'bottom': r_date_axis})  # 创建一个绘图控件
+        # self.r_pw = pg.PlotWidget(self, axisItems={'bottom': r_date_axis})  # 创建一个绘图控件
+        self.r_pw = MyPlotWidget(self, axisItems={'bottom': r_date_axis})  # 创建一个绘图控件
         self.r_pw.showGrid(x=True, y=True)
-        self.region = pg.LinearRegionItem()
-        self.region.setRegion([0, 0])
-        self.r_pw.addItem(self.region, ignoreBounds=True)
+        # self.region = pg.LinearRegionItem()
+        # self.region = pg.RectROI([0, 0], [0, 0], pen=pg.mkPen('g', width=1))
+        # # self.region.setRegion([0, 0])
+        # self.r_pw.addItem(self.region, ignoreBounds=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
         self.r_widget.layout().addWidget(self.r_pw)
+        self.r_pw.region = self.region
+        self.r_pw.l_widget = self.l_widget
+        # self.l_pw.autoPixelRange
 
     def resizeEvent(self, *args, **kwargs):
         self.fileinfo_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -378,7 +391,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
             self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
 
-        self.region.setRegion([0, 0])
+        self.region.setSize([0, 0], [0, 0])
         self.hidden_frame('choice')
 
     def select_row(self, r):
@@ -397,13 +410,27 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.hidden_frame(tab_type)
 
     def edit_model(self):
-        l_x, l_y = self.get_choice_data_xy()
-        a = l_x[0]
-        b = l_x[-1]
-        middle = int((a + b) / 2)
-        w = int((b - a) / 6)
-        w = 1 if w == 0 else w
-        self.region.setRegion([middle - w, middle + w])
+        # 修改按钮背景色,以及编辑状态
+        if self.r_pw.is_edit:
+            self.r_pw.is_edit = False
+            self.edit_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+            self.r_pw.removeItem(self.region)
+        else:
+            self.r_pw.is_edit = True
+            self.edit_btn.setStyleSheet('background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
+            self.r_pw.addItem(self.region, ignoreBounds=True)
+
+
+    def keyPressEvent(self, *args, **kwargs):
+        key = args[0].key()
+        if key == Qt.Key_E:
+            self.edit_model()
+        elif key == Qt.Key_D:
+            self.delete_data()
+
+
+
+
 
     def get_choice_data_xy(self, raw_data=None):
         if raw_data == None:
@@ -420,11 +447,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
     # 删除数据
     def delete_data(self):
         # 选定区域
-        minX, maxX = self.region.getRegion()
-
-        minX = 0 if minX < 0 else int(minX)
-        # c_len = len(self.choice_data)
-        # maxX = c_len if maxX > c_len else int(maxX)
+        select_range = self.r_pw.roi_range
+        if select_range is None:
+            return
 
         undo_data = copy.deepcopy(self.choice_data)
         self.undo_list.append(undo_data)
@@ -433,8 +458,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         for time_str, v in self.choice_data.items():
             # 时间判断
             f = self.timestr2timestamp(time_str)
-            if f >= minX and f <= maxX:
-                self.choice_data[time_str] = 0
+            if f >= select_range[0] and f <= select_range[2]:
+                if v > select_range[1] and v < select_range[3]:
+                    self.choice_data[time_str] = 0
 
         x, y = self.get_choice_data_xy()
         self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
@@ -455,7 +481,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             index = self.fileinfo_table_2.currentIndex().row()
             self.fileinfo_table_2.setItem(index, 1, QTableWidgetItem("手动剔野"))
             self.fileinfo_table_2.item(index, 1).setBackground(QColor(100, 255, 0))
-            self.region.setZValue(0)
+            self.r_pw.is_edit == False
             self.hidden_frame('data_analysis')
             QApplication.processEvents()
 
@@ -592,7 +618,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if fileName_choose == "":
             return
 
-
         # 准备数据
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
@@ -704,7 +729,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 error_number = error_number + 1
                 range_status = "异常"
             child = (
-            index, item['telemetry_name'], item["telemetry_num"], str(parms_range), str(normal_range), range_status)
+                index, item['telemetry_name'], item["telemetry_num"], str(parms_range), str(normal_range), range_status)
             data.append(child)
         return error_number, tuple(data)
         # data = (

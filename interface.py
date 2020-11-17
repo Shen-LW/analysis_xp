@@ -295,22 +295,22 @@ class Ui_MainWindow(object):
         self.frame_4.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame_4.setObjectName("frame_4")
         self.save_change_btn = QtWidgets.QPushButton(self.frame_4)
-        self.save_change_btn.setGeometry(QtCore.QRect(670, 20, 100, 30))
+        self.save_change_btn.setGeometry(QtCore.QRect(700, 20, 110, 30))
         self.save_change_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
 "font: 10pt \"Microsoft YaHei UI\";")
         self.save_change_btn.setObjectName("save_change_btn")
         self.edit_btn = QtWidgets.QPushButton(self.frame_4)
-        self.edit_btn.setGeometry(QtCore.QRect(310, 20, 100, 30))
+        self.edit_btn.setGeometry(QtCore.QRect(310, 20, 110, 30))
         self.edit_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
 "font: 10pt \"Microsoft YaHei UI\";")
         self.edit_btn.setObjectName("edit_btn")
         self.delete_btn = QtWidgets.QPushButton(self.frame_4)
-        self.delete_btn.setGeometry(QtCore.QRect(430, 20, 100, 30))
+        self.delete_btn.setGeometry(QtCore.QRect(440, 20, 110, 30))
         self.delete_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
 "font: 10pt \"Microsoft YaHei UI\";")
         self.delete_btn.setObjectName("delete_btn")
         self.undo_btn = QtWidgets.QPushButton(self.frame_4)
-        self.undo_btn.setGeometry(QtCore.QRect(550, 20, 100, 30))
+        self.undo_btn.setGeometry(QtCore.QRect(570, 20, 110, 30))
         self.undo_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
 "font: 10pt \"Microsoft YaHei UI\";")
         self.undo_btn.setObjectName("undo_btn")
@@ -392,7 +392,7 @@ class Ui_MainWindow(object):
         item.setText(_translate("MainWindow", "查看数据"))
         self.label_10.setText(_translate("MainWindow", "手动剔野"))
         self.save_change_btn.setText(_translate("MainWindow", "保存数据"))
-        self.edit_btn.setText(_translate("MainWindow", "编辑模式"))
-        self.delete_btn.setText(_translate("MainWindow", "批量删除"))
+        self.edit_btn.setText(_translate("MainWindow", "编辑模式 (E)"))
+        self.delete_btn.setText(_translate("MainWindow", "批量删除 (D)"))
         self.undo_btn.setText(_translate("MainWindow", "撤销"))
 

@@ -759,9 +759,9 @@ border:0px;</string>
       <widget class="QPushButton" name="save_change_btn">
        <property name="geometry">
         <rect>
-         <x>670</x>
+         <x>700</x>
          <y>20</y>
-         <width>100</width>
+         <width>110</width>
          <height>30</height>
         </rect>
        </property>
@@ -778,7 +778,7 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
         <rect>
          <x>310</x>
          <y>20</y>
-         <width>100</width>
+         <width>110</width>
          <height>30</height>
         </rect>
        </property>
@@ -787,15 +787,15 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
 font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
        <property name="text">
-        <string>编辑模式</string>
+        <string>编辑模式 (E)</string>
        </property>
       </widget>
       <widget class="QPushButton" name="delete_btn">
        <property name="geometry">
         <rect>
-         <x>430</x>
+         <x>440</x>
          <y>20</y>
-         <width>100</width>
+         <width>110</width>
          <height>30</height>
         </rect>
        </property>
@@ -804,15 +804,15 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
 font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
        <property name="text">
-        <string>批量删除</string>
+        <string>批量删除 (D)</string>
        </property>
       </widget>
       <widget class="QPushButton" name="undo_btn">
        <property name="geometry">
         <rect>
-         <x>550</x>
+         <x>570</x>
          <y>20</y>
-         <width>100</width>
+         <width>110</width>
          <height>30</height>
         </rect>
        </property>
