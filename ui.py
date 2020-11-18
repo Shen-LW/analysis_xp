@@ -8,11 +8,10 @@ import collections
 
 import xlrd
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtGui import QColor, QIcon, QMouseEvent, QPen
-# from PyQt5.QtGui import *
+from PyQt5.QtGui import QColor
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, \
-    QHeaderView, QAbstractItemView, QWidget
+    QHeaderView
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from docx import Document
