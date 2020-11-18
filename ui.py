@@ -8,7 +8,7 @@ import collections
 
 import xlrd
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtGui import QColor, QIcon, QMouseEvent
+from PyQt5.QtGui import QColor, QIcon, QMouseEvent, QPen
 # from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, \
@@ -134,6 +134,20 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if not os.path.exists(path):
                 os.makedirs(path)
 
+    def reset_data(self):
+        # 重置软件数据状态
+        self.raw_data = []  # 爬取的原始数据
+        self.excel_data = []  # 所有excel爬取的数据, 修改记录在这里
+        self.manual_item = {}  # 当前操作的数据
+        self.choice_data = []  # 剔野暂存数据
+        self.select_indexs = []  # 自动剔野选择行数组
+        self.l_plot_data = None  # 左侧绘图数据
+        self.r_plot_data = None  # 右侧绘图数据
+        self.undo_list = []  # undo列表
+        self.crawl_status = False
+
+
+
     def extar_control(self):
         # 左边框
         l_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
@@ -179,9 +193,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         if fileName_choose == "":
             return
+        # 重置软件状态
+        self.reset_data()
+
         self.excel_path_edit.setText(fileName_choose)
         # 解析excel文件，填充内容
         self.parse_excel(fileName_choose)
+
 
     # 解析excel
     def parse_excel(self, file_path):
@@ -420,17 +438,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.edit_btn.setStyleSheet('background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
             self.r_pw.addItem(self.region, ignoreBounds=True)
 
-
     def keyPressEvent(self, *args, **kwargs):
         key = args[0].key()
         if key == Qt.Key_E:
             self.edit_model()
         elif key == Qt.Key_D:
             self.delete_data()
-
-
-
-
 
     def get_choice_data_xy(self, raw_data=None):
         if raw_data == None:
@@ -481,7 +494,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             index = self.fileinfo_table_2.currentIndex().row()
             self.fileinfo_table_2.setItem(index, 1, QTableWidgetItem("手动剔野"))
             self.fileinfo_table_2.item(index, 1).setBackground(QColor(100, 255, 0))
-            self.r_pw.is_edit == False
+            self.r_pw. is_edit = False
             self.hidden_frame('data_analysis')
             QApplication.processEvents()
 
@@ -691,15 +704,23 @@ class UiTest(QMainWindow, Ui_MainWindow):
             h_cells[4].text = state_change
 
         document.add_heading('1.1 XXXX卫星控制系统性能在轨状况', level=1)
-        # 生成图片
+
+        # 多组数据组合制图
+        drafting_number = {}
         for item in self.excel_data:
             img_num = str(item['img_num'])
-            if img_num == '' or img_num[0] != '1':
+            if img_num == '' or img_num == 'None':
                 continue
+            if img_num not in drafting_number:
+                drafting_number[img_num] = []
+            drafting_number[img_num].append(item)
+
+        # 生成图片
+        for img_num, drafting_list in drafting_number.items():
             table1_title = document.add_paragraph("图" + img_num)
             table1_title = table1_title.paragraph_format
             table1_title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-            image_path = self.create_docx_image(item['data'])
+            image_path = self.create_docx_image([item['data'] for item in drafting_list])
             document.add_picture(image_path)
 
         document.add_heading('1.2 二浮陀螺在轨运行状况', level=1)
@@ -720,7 +741,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if 'SPE故障判断允许位' in item['telemetry_name']:
                 continue
             parms_range = self.get_data_range(item["data"])
-            normal_split = item['normal_range'].replace('°', '').replace('~', ',').replace(' ', '').split(',')
+            normal_split = item['normal_range'].replace('°', '').replace('[', '').replace(']', '').replace('~',
+                                                                                                           ',').replace(
+                ' ', '').split(',')
             normal_range = [float(normal_split[0]), float(normal_split[1])]
 
             if parms_range[0] >= normal_range[0] and parms_range[1] <= normal_range[1]:
@@ -747,19 +770,21 @@ class UiTest(QMainWindow, Ui_MainWindow):
         )
         return date
 
-    def create_docx_image(self, data):
-        x = []
-        y = []
-        for k, v in data.items():
-            x.append(self.timestr2timestamp(k))
-            y.append(float(v))
-
-        # pw = pg.PlotWidget(self)  # 创建一个绘图控件
-        # pw.showGrid(x=True, y=True)
-        # pw.plot(y_list)
+    def create_docx_image(self, data_list):
         date_axis = TimeAxisItem(orientation='bottom')
         plt = pg.plot(axisItems={'bottom': date_axis})
-        plt.plot(y=y, pen=pg.mkPen('r', width=1))
+
+        color_list = [(220, 20, 60), (0, 0, 255), (0, 255, 0), (255, 140, 0), (0, 255, 255), (255, 0, 255), (0, 0, 139)]
+        index = 0
+        for data in data_list:
+            color = color_list[index % len(color_list)]
+            index = index + 1
+            x = []
+            y = []
+            for k, v in data.items():
+                x.append(self.timestr2timestamp(k))
+                y.append(float(v))
+            plt.plot(y=y, pen=pg.mkPen(QColor(color[0], color[1], color[2])))
 
         exporter = ImageExporter(plt.plotItem)
         exporter.parameters()['width'] = 800

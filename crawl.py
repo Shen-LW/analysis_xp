@@ -191,7 +191,8 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
         return False, None
     # 实际爬取数据
     data = crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
-    return True, data
+    items = parse_data(data)
+    return True, items
 
 
 def crawl_test(model_name, telemetry_name, start_time, end_time):
