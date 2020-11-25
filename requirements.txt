@@ -1,11 +1,16 @@
 certifi==2020.6.20
 chardet==3.0.4
+demjson==2.2.4
 idna==2.8
 lxml==4.3.3
 numpy==1.15.0
+pefile==2019.4.18
 Pillow==5.4.1
+pyinstaller==3.5+498e6ee058
 pyqtgraph==0.11.0
 python-docx==0.8.3
+pywin32==221
+pywin32-ctypes==0.2.0
 requests==2.21.0
 urllib3==1.24.3
 xlrd==1.2.0
