@@ -207,7 +207,7 @@ background-color:#455ab3;
 color:#fff;</string>
        </property>
        <property name="text">
-        <string>开始爬取</string>
+        <string>开始读取</string>
        </property>
       </widget>
       <widget class="QLineEdit" name="model_edit">

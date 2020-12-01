@@ -182,7 +182,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def choose_excel(self):
         if self.crawl_status:
             message_box = MyMessageBox()
-            message_box.setContent("请等待", "请等待数据爬取完成")
+            message_box.setContent("请等待", "请等待数据读取完成")
             message_box.exec_()
             return
         fileName_choose, filetype = QtWidgets.QFileDialog.getOpenFileName(self,
@@ -347,13 +347,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def crawl(self):
         if not self.excel_data:
             message_box = MyMessageBox()
-            message_box.setContent("参数缺失", "未导入任何爬取参数")
+            message_box.setContent("参数缺失", "未导入任何爬读取参数")
             message_box.exec_()
             return
 
         if self.crawl_status:
             message_box = MyMessageBox()
-            message_box.setContent("请等待", "请等待数据爬取完成")
+            message_box.setContent("请等待", "请等待数据读取完成")
             message_box.exec_()
             return
 
@@ -378,7 +378,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             # is_ok, data = crawl(username, password, model, item['telemetry_name'], create_time, end_time)
             if is_ok:
                 item["data"] = data
-                self.fileinfo_table.setItem(index, 0, QTableWidgetItem("爬取成功"))
+                self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
                 self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
             else:
                 self.fileinfo_table.setItem(index, 0, QTableWidgetItem("失败"))
@@ -421,7 +421,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def select_tab(self, tab_type):
         if self.crawl_status:
             message_box = MyMessageBox()
-            message_box.setContent("请等待", "请等待数据爬取完成")
+            message_box.setContent("请等待", "请等待数据读取完成")
             message_box.exec_()
             return
         self.hidden_frame(tab_type)
