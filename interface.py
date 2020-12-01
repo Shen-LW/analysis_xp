@@ -331,7 +331,7 @@ class Ui_MainWindow(object):
         self.choice_btn.setText(_translate("MainWindow", "手动剔野"))
         self.label_8.setText(_translate("MainWindow", "--"))
         self.label.setText(_translate("MainWindow", "参数信息"))
-        self.crawl_btn.setText(_translate("MainWindow", "开始爬取"))
+        self.crawl_btn.setText(_translate("MainWindow", "开始读取"))
         self.upload_excel_btn.setText(_translate("MainWindow", "参数名上传"))
         self.label_6.setText(_translate("MainWindow", "时间段:"))
         self.label_7.setText(_translate("MainWindow", "密码:"))
