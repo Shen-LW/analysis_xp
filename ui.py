@@ -370,11 +370,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
             pass
 
         # 循环爬取
-        # 测试，使用相同数据
-        is_ok, data = crawl_test(model, "", create_time, end_time)
         for item in self.excel_data:
             index = self.excel_data.index(item)
             time.sleep(0.3)
+            # 测试，使用相同数据
+            is_ok, data = crawl_test(model, "", create_time, end_time)
             # is_ok, data = crawl(username, password, model, item['telemetry_name'], create_time, end_time)
             if is_ok:
                 item["data"] = data
