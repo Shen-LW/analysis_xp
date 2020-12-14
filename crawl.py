@@ -169,6 +169,8 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
     date_stamp = int(time.time() * 1000)
     # 解析型号名称
     modellist = crawl_menu(cookie, date_stamp)
+    if modellist is None or modellist == []:
+        return False, "账号或密码错误"
     mid = None
     sys_resource_id = None
     for item in modellist:

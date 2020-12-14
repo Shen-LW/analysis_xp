@@ -381,8 +381,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
                 self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
             else:
-                self.fileinfo_table.setItem(index, 0, QTableWidgetItem("失败"))
-                self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
+                if data is None:
+                    self.fileinfo_table.setItem(index, 0, QTableWidgetItem("失败"))
+                    self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
+                else:
+                    message_box = MyMessageBox()
+                    message_box.setContent("爬取失败", data)
+                    message_box.exec_()
+                    self.crawl_status = False
+                    return
             QApplication.processEvents()
 
         self.crawl_status = False
