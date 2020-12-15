@@ -7,6 +7,7 @@ import uuid
 import collections
 
 import xlrd
+from PIL import Image
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import Qt
@@ -49,7 +50,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.config = Settings()
         self.init_style()
 
-
     def bing_signal(self):
         self.upload_excel_btn.clicked.connect(self.choose_excel)
         self.crawl_btn.clicked.connect(self.crawl)
@@ -65,7 +65,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.data_get_btn.clicked.connect(lambda: self.select_tab('data_get'))
         self.data_analysis_btn.clicked.connect(lambda: self.select_tab('data_analysis'))
         self.choice_btn.clicked.connect(lambda: self.select_tab('choice'))
-
 
     def init_style(self):
         # self.setWindowFlags(Qt.FramelessWindowHint)
@@ -84,8 +83,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             choice_items = [str([item + 1 for item in indexs]) for indexs in auto_choices]
             choice_items.insert(0, '[]')
             self.auto_choices_cbbox.addItems(choice_items)
-
-
 
     def hidden_frame(self, tab):
         style_1 = 'font: 75 12pt "微软雅黑";background-color: rgb(255, 255, 255);color:#455ab3;border-top-left-radius:15px;border-top-right-radius:15px;'
@@ -163,8 +160,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.undo_list = []  # undo列表
         self.crawl_status = False
 
-
-
     def extar_control(self):
         # 左边框
         l_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
@@ -216,7 +211,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.excel_path_edit.setText(fileName_choose)
         # 解析excel文件，填充内容
         self.parse_excel(fileName_choose)
-
 
     # 解析excel
     def parse_excel(self, file_path):
@@ -463,7 +457,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             checkbox.setChecked(False)
             self.select_indexs = self.get_select_indexs()
 
-
     def get_select_indexs(self):
         # 获取当前勾选状态，0：未选中，2 已选中
         select_indexs = []
@@ -551,7 +544,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             index = self.fileinfo_table_2.currentIndex().row()
             self.fileinfo_table_2.setItem(index, 1, QTableWidgetItem("手动剔野"))
             self.fileinfo_table_2.item(index, 1).setBackground(QColor(100, 255, 0))
-            self.r_pw. is_edit = False
+            self.r_pw.is_edit = False
             self.hidden_frame('data_analysis')
             QApplication.processEvents()
 
@@ -642,7 +635,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         QApplication.processEvents()
 
-
     # 保存自动剔野选项
     def save_auto_choice_config(self):
         self.select_indexs = self.get_select_indexs()
@@ -655,7 +647,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box = MyMessageBox()
             message_box.setContent("配置保存", "保存成功")
             message_box.exec_()
-
 
     def source_choice(self, source_data_dict):
         # {"index": "value"}
@@ -834,6 +825,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         error_number = 0
         for index in range(len(self.excel_data)):
             item = self.excel_data[index]
+            if item['data'] == [] or item['data'] is None:
+                continue
             if 'SPE故障判断允许位' in item['telemetry_name']:
                 continue
             parms_range = self.get_data_range(item["data"])
@@ -866,13 +859,47 @@ class UiTest(QMainWindow, Ui_MainWindow):
         )
         return date
 
+    def split_image(self, source_paths, save_path, flag='horizontal'):
+        """
+        :param source_paths: 原始图片数组
+        :param save_path: 保存路径
+        :param flag: horizontal or vertical
+        :return:
+        """
+        # 计算图片长宽
+        w_size = 0
+        h_size = 0
+        loc_list = []
+        if flag == 'horizontal':
+            for item in source_paths:
+                loc_list.append((w_size, 0))
+                img = Image.open(item)
+                size = img.size
+                w_size = w_size + size[0]
+                h_size = size[1]
+        elif flag == 'vertical':
+            for item in source_paths:
+                loc_list.append((0, h_size))
+                img = Image.open(item)
+                size = img.size
+                w_size = size[0]
+                h_size = h_size + size[1]
+
+        # 拼接图片
+        joint = Image.new('RGB', (w_size, h_size))
+        for item in source_paths:
+            img = Image.open(item)
+            joint.paste(img, loc_list[source_paths.index(item)])
+
+        joint.save(save_path)
+
     def create_docx_image(self, data_list):
         date_axis = TimeAxisItem(orientation='bottom')
-        plt = pg.plot(axisItems={'bottom': date_axis})
-
         color_list = [(220, 20, 60), (0, 0, 255), (0, 255, 0), (255, 140, 0), (0, 255, 255), (255, 0, 255), (0, 0, 139)]
         index = 0
+        split_name_list = []
         for data in data_list:
+            plt = pg.plot(axisItems={'bottom': date_axis})
             color = color_list[index % len(color_list)]
             index = index + 1
             x = []
@@ -881,13 +908,23 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 x.append(self.timestr2timestamp(k))
                 y.append(float(v))
             plt.plot(y=y, pen=pg.mkPen(QColor(color[0], color[1], color[2])))
+            # 生成多张需要拼接图片
+            exporter = ImageExporter(plt.plotItem)
+            exporter.parameters()['width'] = 800
+            exporter.parameters()['height'] = 400
 
-        exporter = ImageExporter(plt.plotItem)
-        exporter.parameters()['width'] = 800
-        exporter.parameters()['height'] = 400
+            split_name = 'tmp/' + 'split_' + str(index) + '.png'
+            exporter.export(split_name)
+            split_name_list.append(split_name)
 
+        # 拼接图片
         file_name = 'tmp/' + str(uuid.uuid1()).replace('-', '') + '.png'
-        exporter.export(file_name)
+        self.split_image(split_name_list, file_name, flag='vertical')
+
+        # exporter = ImageExporter(plt.plotItem)
+        # exporter.parameters()['width'] = 800
+        # exporter.parameters()['height'] = 400
+        # exporter.export(file_name)
         return file_name
 
     def get_data_range(self, data):
