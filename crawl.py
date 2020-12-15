@@ -179,7 +179,7 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
             sys_resource_id = item["sys_resource_id"]
             break
     else:
-        return False, None
+        return False, []
     # 解析遥测代号
     telemetry_id = None
     telemetry_num = None
@@ -190,7 +190,7 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
             telemetry_num = item["num"]
             break
     else:
-        return False, None
+        return False, []
     # 实际爬取数据
     data = crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
     items = parse_data(data)
@@ -198,6 +198,7 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
 
 
 def crawl_test(model_name, telemetry_name, start_time, end_time):
+    # return False, "用户名或密码错误"
     time.sleep(0.3)
     # 生成随机数据
     data = '''

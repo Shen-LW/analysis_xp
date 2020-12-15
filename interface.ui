@@ -102,10 +102,10 @@ border-top-right-radius:15px;</string>
       <widget class="QLabel" name="label_3">
        <property name="geometry">
         <rect>
-         <x>30</x>
-         <y>20</y>
-         <width>350</width>
-         <height>40</height>
+         <x>20</x>
+         <y>10</y>
+         <width>353</width>
+         <height>60</height>
         </rect>
        </property>
        <property name="styleSheet">
@@ -228,6 +228,9 @@ color:#fff;</string>
          <width>300</width>
          <height>30</height>
         </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">font: 12pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
       </widget>
       <widget class="QLineEdit" name="username_edit">
@@ -529,7 +532,7 @@ margin: 8px;</string>
       <widget class="QPushButton" name="report_docx_btn">
        <property name="geometry">
         <rect>
-         <x>850</x>
+         <x>860</x>
          <y>20</y>
          <width>100</width>
          <height>30</height>
@@ -546,7 +549,7 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
       <widget class="QPushButton" name="auto_choice_btn">
        <property name="geometry">
         <rect>
-         <x>730</x>
+         <x>620</x>
          <y>20</y>
          <width>100</width>
          <height>30</height>
@@ -563,7 +566,7 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
       <widget class="QPushButton" name="select_all_btn">
        <property name="geometry">
         <rect>
-         <x>610</x>
+         <x>500</x>
          <y>20</y>
          <width>100</width>
          <height>30</height>
@@ -602,6 +605,36 @@ border:0px;</string>
        </property>
        <property name="text">
         <string>选择性剔野</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="save_auto_choice_config_btn">
+       <property name="geometry">
+        <rect>
+         <x>740</x>
+         <y>20</y>
+         <width>100</width>
+         <height>30</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color:#455ab3;color:#fff;
+font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
+       </property>
+       <property name="text">
+        <string>保存配置</string>
+       </property>
+      </widget>
+      <widget class="QComboBox" name="auto_choices_cbbox">
+       <property name="geometry">
+        <rect>
+         <x>140</x>
+         <y>20</y>
+         <width>340</width>
+         <height>30</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">font: 12pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
       </widget>
      </widget>

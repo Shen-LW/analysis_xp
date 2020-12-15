@@ -22,6 +22,7 @@ from interface import Ui_MainWindow
 from crawl import crawl, crawl_test
 from myMessage import MyMessageBox
 from MyPlotWidget import MyPlotWidget
+from settings import Settings
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -44,8 +45,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.bing_signal()
         self.extar_control()
-        self.init_style()
         self.create_dir(['tmp', 'source'])
+        self.config = Settings()
+        self.init_style()
+
 
     def bing_signal(self):
         self.upload_excel_btn.clicked.connect(self.choose_excel)
@@ -57,9 +60,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.save_change_btn.clicked.connect(self.save_chaneg)
         self.select_all_btn.clicked.connect(self.select_all)
         self.auto_choice_btn.clicked.connect(self.auto_choice)
+        self.auto_choices_cbbox.currentIndexChanged.connect(self.change_auto_choice_index)
+        self.save_auto_choice_config_btn.clicked.connect(self.save_auto_choice_config)
         self.data_get_btn.clicked.connect(lambda: self.select_tab('data_get'))
         self.data_analysis_btn.clicked.connect(lambda: self.select_tab('data_analysis'))
         self.choice_btn.clicked.connect(lambda: self.select_tab('choice'))
+
 
     def init_style(self):
         # self.setWindowFlags(Qt.FramelessWindowHint)
@@ -68,6 +74,18 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.label_3.setPixmap(logo)
         self.label_3.setScaledContents(True)
         self.hidden_frame('data_get')
+        # 加载默认设置
+        login_config = self.config.get_login()
+        if login_config['username']:
+            self.username_edit.setText(login_config['username'])
+            self.password_edit.setText(login_config['password'])
+        auto_choices = self.config.get_auto_choice_list()
+        if auto_choices:
+            choice_items = [str([item + 1 for item in indexs]) for indexs in auto_choices]
+            choice_items.insert(0, '[]')
+            self.auto_choices_cbbox.addItems(choice_items)
+
+
 
     def hidden_frame(self, tab):
         style_1 = 'font: 75 12pt "微软雅黑";background-color: rgb(255, 255, 255);color:#455ab3;border-top-left-radius:15px;border-top-right-radius:15px;'
@@ -329,7 +347,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
             item = excel_data[r]
             selectBtn = self.getSelectButton(r)
             self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
-            self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem("未剔野"))
+            tmp_text = "未剔野" if item['data'] else "数据爬取失败"
+            self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
+            if tmp_text == '数据爬取失败':
+                self.fileinfo_table_2.item(r, 1).setBackground(QColor(255, 185, 15))
             self.fileinfo_table_2.setItem(r, 2, QTableWidgetItem(str(item['telemetry_name'])))
             self.fileinfo_table_2.setItem(r, 3, QTableWidgetItem(str(item['telemetry_num'])))
             self.fileinfo_table_2.setItem(r, 4, QTableWidgetItem(str(item['normal_range'])))
@@ -370,23 +391,28 @@ class UiTest(QMainWindow, Ui_MainWindow):
             pass
 
         # 循环爬取
+        i = 0
         for item in self.excel_data:
             index = self.excel_data.index(item)
             time.sleep(0.3)
             # 测试，使用相同数据
             is_ok, data = crawl_test(model, "", create_time, end_time)
+            i = i + 1
+            if i == 5:
+                is_ok = False
+                data = None
             # is_ok, data = crawl(username, password, model, item['telemetry_name'], create_time, end_time)
             if is_ok:
                 item["data"] = data
                 self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
                 self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
             else:
-                if data is None:
-                    self.fileinfo_table.setItem(index, 0, QTableWidgetItem("失败"))
+                if data is None or data == []:
+                    self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
                     self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
                 else:
                     message_box = MyMessageBox()
-                    message_box.setContent("爬取失败", data)
+                    message_box.setContent("读取失败", str(data))
                     message_box.exec_()
                     self.crawl_status = False
                     return
@@ -398,9 +424,18 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.hidden_frame('data_analysis')
         self.update_talbe2()
 
+        # 爬取成功，保存账户和密码
+        self.config.change_login(self.username_edit.text(), self.password_edit.text())
+
     def manual_choice(self, r):
         self.fileinfo_table_2.selectRow(r)
         self.manual_item = self.excel_data[r]
+        if self.manual_item['data'] == [] or self.manual_item['data'] is None:
+            message_box = MyMessageBox()
+            message_box.setContent("获取失败", "请检查数据后重新爬取")
+            message_box.exec_()
+            return
+
         self.choice_data = copy.deepcopy(self.manual_item["data"])
         self.undo_list = []
         # 传递到手动剔野页面,更新数据
@@ -419,10 +454,26 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.hidden_frame('choice')
 
     def select_row(self, r):
-        if r in self.select_indexs:
-            self.select_indexs.remove(r)
-        else:
-            self.select_indexs.append(r)
+        if self.raw_data[r]['data'] == [] or self.raw_data[r]['data'] is None:
+            message_box = MyMessageBox()
+            message_box.setContent("获取失败", "请检查数据后重新爬取")
+            message_box.exec_()
+            object_name = str(r) + '_select'
+            checkbox = self.findChild(QCheckBox, object_name)
+            checkbox.setChecked(False)
+            self.select_indexs = self.get_select_indexs()
+
+
+    def get_select_indexs(self):
+        # 获取当前勾选状态，0：未选中，2 已选中
+        select_indexs = []
+        number = len(self.raw_data)
+        for i in range(number):
+            object_name = str(i) + '_select'
+            checkbox = self.findChild(QCheckBox, object_name)
+            if checkbox.checkState() == 2:
+                select_indexs.append(i)
+        return select_indexs
 
     # 标签页切换
     def select_tab(self, tab_type):
@@ -508,19 +559,19 @@ class UiTest(QMainWindow, Ui_MainWindow):
         number = len(self.raw_data)
         if self.select_all_btn.text() == '全选':
             for i in range(number):
+                if self.raw_data[i]['data'] == [] or self.raw_data[i]['data'] is None:
+                    continue
                 object_name = str(i) + '_select'
                 checkbox = self.findChild(QCheckBox, object_name)
                 checkbox.setChecked(True)
-                self.select_indexs.append(i)
             self.select_all_btn.setText('取消全选')
-            self.select_indexs = list(set(self.select_indexs))
         elif self.select_all_btn.text() == '取消全选':
             for i in range(number):
                 object_name = str(i) + '_select'
                 checkbox = self.findChild(QCheckBox, object_name)
                 checkbox.setChecked(False)
             self.select_all_btn.setText('全选')
-            self.select_indexs = []
+        self.select_indexs = self.get_select_indexs()
         QApplication.processEvents()
 
     def auto_choice(self):
@@ -566,6 +617,45 @@ class UiTest(QMainWindow, Ui_MainWindow):
         message_box = MyMessageBox()
         message_box.setContent("自动剔野", "自动剔野已完成")
         message_box.exec_()
+
+    # 选择自动剔野保存项
+    def change_auto_choice_index(self):
+        curr_index = self.auto_choices_cbbox.currentIndex()
+        number = len(self.raw_data)
+        # 清除原有选择
+        for i in range(number):
+            object_name = str(i) + '_select'
+            checkbox = self.findChild(QCheckBox, object_name)
+            checkbox.setChecked(False)
+        self.select_indexs = []
+
+        choice_lists = self.config.get_auto_choice_list()
+        choice_lists.insert(0, [])
+        for item in choice_lists[curr_index]:
+            if item < number:
+                if self.raw_data[item]['data'] == [] or self.raw_data[item]['data'] is None:
+                    continue
+                object_name = str(item) + '_select'
+                checkbox = self.findChild(QCheckBox, object_name)
+                checkbox.setChecked(True)
+        self.select_indexs = self.get_select_indexs()
+
+        QApplication.processEvents()
+
+
+    # 保存自动剔野选项
+    def save_auto_choice_config(self):
+        self.select_indexs = self.get_select_indexs()
+        if self.select_indexs == [] or self.select_indexs == None:
+            message_box = MyMessageBox()
+            message_box.setContent("配置保存", "当前选择为空")
+            message_box.exec_()
+        else:
+            self.config.change_auto_choice(self.select_indexs)
+            message_box = MyMessageBox()
+            message_box.setContent("配置保存", "保存成功")
+            message_box.exec_()
+
 
     def source_choice(self, source_data_dict):
         # {"index": "value"}

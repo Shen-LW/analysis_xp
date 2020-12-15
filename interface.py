@@ -52,7 +52,7 @@ class Ui_MainWindow(object):
 "border-top-right-radius:15px;")
         self.choice_btn.setObjectName("choice_btn")
         self.label_3 = QtWidgets.QLabel(self.frame_5)
-        self.label_3.setGeometry(QtCore.QRect(30, 20, 350, 40))
+        self.label_3.setGeometry(QtCore.QRect(20, 10, 353, 60))
         self.label_3.setStyleSheet("border-top-left-radius:0px;\n"
 "border-top-right-radius:0px;\n"
 "")
@@ -97,6 +97,7 @@ class Ui_MainWindow(object):
         self.model_edit.setObjectName("model_edit")
         self.password_edit = QtWidgets.QLineEdit(self.frame)
         self.password_edit.setGeometry(QtCore.QRect(480, 70, 300, 30))
+        self.password_edit.setStyleSheet("font: 12pt \"Microsoft YaHei UI\";")
         self.password_edit.setObjectName("password_edit")
         self.username_edit = QtWidgets.QLineEdit(self.frame)
         self.username_edit.setGeometry(QtCore.QRect(110, 70, 300, 30))
@@ -201,17 +202,17 @@ class Ui_MainWindow(object):
         self.frame_2.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame_2.setObjectName("frame_2")
         self.report_docx_btn = QtWidgets.QPushButton(self.frame_2)
-        self.report_docx_btn.setGeometry(QtCore.QRect(850, 20, 100, 30))
+        self.report_docx_btn.setGeometry(QtCore.QRect(860, 20, 100, 30))
         self.report_docx_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
 "font: 10pt \"Microsoft YaHei UI\";")
         self.report_docx_btn.setObjectName("report_docx_btn")
         self.auto_choice_btn = QtWidgets.QPushButton(self.frame_2)
-        self.auto_choice_btn.setGeometry(QtCore.QRect(730, 20, 100, 30))
+        self.auto_choice_btn.setGeometry(QtCore.QRect(620, 20, 100, 30))
         self.auto_choice_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
 "font: 10pt \"Microsoft YaHei UI\";")
         self.auto_choice_btn.setObjectName("auto_choice_btn")
         self.select_all_btn = QtWidgets.QPushButton(self.frame_2)
-        self.select_all_btn.setGeometry(QtCore.QRect(610, 20, 100, 30))
+        self.select_all_btn.setGeometry(QtCore.QRect(500, 20, 100, 30))
         self.select_all_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
 "font: 10pt \"Microsoft YaHei UI\";")
         self.select_all_btn.setObjectName("select_all_btn")
@@ -228,6 +229,15 @@ class Ui_MainWindow(object):
 "font: 75 14pt \"Microsoft YaHei UI\";\n"
 "border:0px;")
         self.label_9.setObjectName("label_9")
+        self.save_auto_choice_config_btn = QtWidgets.QPushButton(self.frame_2)
+        self.save_auto_choice_config_btn.setGeometry(QtCore.QRect(740, 20, 100, 30))
+        self.save_auto_choice_config_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
+"font: 10pt \"Microsoft YaHei UI\";")
+        self.save_auto_choice_config_btn.setObjectName("save_auto_choice_config_btn")
+        self.auto_choices_cbbox = QtWidgets.QComboBox(self.frame_2)
+        self.auto_choices_cbbox.setGeometry(QtCore.QRect(140, 20, 340, 30))
+        self.auto_choices_cbbox.setStyleSheet("font: 12pt \"Microsoft YaHei UI\";")
+        self.auto_choices_cbbox.setObjectName("auto_choices_cbbox")
         self.verticalLayout.addWidget(self.frame_2)
         self.fileinfo_table_2 = QtWidgets.QTableWidget(self.centralwidget)
         self.fileinfo_table_2.setStyleSheet("font: 10pt \"Microsoft YaHei UI\";")
@@ -364,6 +374,7 @@ class Ui_MainWindow(object):
         self.auto_choice_btn.setText(_translate("MainWindow", "自动剔野"))
         self.select_all_btn.setText(_translate("MainWindow", "全选"))
         self.label_9.setText(_translate("MainWindow", "选择性剔野"))
+        self.save_auto_choice_config_btn.setText(_translate("MainWindow", "保存配置"))
         item = self.fileinfo_table_2.horizontalHeaderItem(0)
         item.setText(_translate("MainWindow", "选择"))
         item = self.fileinfo_table_2.horizontalHeaderItem(1)
