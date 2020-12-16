@@ -5,6 +5,7 @@ import time
 import copy
 import uuid
 import collections
+from threading import Thread, Lock
 
 import xlrd
 from PIL import Image
@@ -20,9 +21,10 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.oxml.ns import qn
 
 from interface import Ui_MainWindow
-from crawl import crawl, crawl_test
+from crawl import crawl, check_login, crawl_test
 from myMessage import MyMessageBox
 from MyPlotWidget import MyPlotWidget
+from crawlThread import CrawlThread
 from settings import Settings
 
 pg.setConfigOption('background', 'w')
@@ -36,6 +38,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.region = pg.RectROI([0, 0], [0, 0], pen=pg.mkPen('g', width=1))  # 框选
         self.raw_data = []  # 爬取的原始数据
         self.excel_data = []  # 所有excel爬取的数据, 修改记录在这里
+        self.crawl_status_list = []  # 暂存所有列的爬取状态
         self.manual_item = {}  # 当前操作的数据
         self.choice_data = []  # 剔野暂存数据
         self.select_indexs = []  # 自动剔野选择行数组
@@ -152,6 +155,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 重置软件数据状态
         self.raw_data = []  # 爬取的原始数据
         self.excel_data = []  # 所有excel爬取的数据, 修改记录在这里
+        self.crawl_status_list = []
         self.manual_item = {}  # 当前操作的数据
         self.choice_data = []  # 剔野暂存数据
         self.select_indexs = []  # 自动剔野选择行数组
@@ -249,7 +253,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 "data": []
             }
             self.excel_data.append(item)
+        self.crawl_status_list = [None for i in range(len(self.excel_data))]
         self.update_talbe1()
+        self.crawl_btn.setEnabled(True)
+        self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
+
 
     def update_talbe1(self):
         count = self.fileinfo_table.rowCount()
@@ -359,6 +367,45 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
             # self.fileinfo_table_2.setItem(r, 9, QTableWidgetItem(str(item['params_four'])))
 
+
+    def crawl_thread(self, item, username, password, model, telemetry_name, create_time, end_time):
+        index = self.excel_data.index(item)
+        time.sleep(0.3)
+        # 测试，使用相同数据
+        is_ok, data = crawl_test(model, "", create_time, end_time)
+        # is_ok, data = crawl(username, password, model, item['telemetry_name'], create_time, end_time)
+        if is_ok:
+            item["data"] = data
+            self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
+            self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
+        else:
+            self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
+            self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
+        QApplication.processEvents()
+
+
+    def crawl_callback(self, msg):
+        item, is_ok, data = msg
+        index = self.excel_data.index(item)
+        if is_ok:
+            item["data"] = data
+            self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
+            self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
+            self.crawl_status_list[index] = True
+        else:
+            self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
+            self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
+            self.crawl_status_list[index] = False
+
+        if None not in self.crawl_status_list:
+            self.crawl_status = False
+            self.raw_data = copy.deepcopy(self.excel_data)
+            # 切换到数据分析标签，并填充数据
+            self.hidden_frame('data_analysis')
+            self.update_talbe2()
+
+
+
     def crawl(self):
         if not self.excel_data:
             message_box = MyMessageBox()
@@ -381,45 +428,55 @@ class UiTest(QMainWindow, Ui_MainWindow):
         end_time = self.end_time_edit.text()
 
         if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-            # QMessageBox.warning(self, "参数缺失", "请完善参数信息", QMessageBox.Yes|QMessageBox.No,QMessageBox.Yes)
+            # message_box = MyMessageBox()
+            # message_box.setContent("参数缺失", "请完善参数信息")
+            # message_box.exec_()
             pass
 
-        # 循环爬取
-        i = 0
+        # 判断账号密码是否正确
+        # if not check_login(username, password):
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("读取失败", "账号或密码错误")
+        #     message_box.exec_()
+        #     return
+        # else:
+        #     # 保存账户和密码
+        #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
+
+        # 多线程爬取
+        # 创建线程
+        self.crawl_btn.setEnabled(False)
+        self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+        thread_list = []
         for item in self.excel_data:
-            index = self.excel_data.index(item)
-            time.sleep(0.3)
-            # 测试，使用相同数据
-            is_ok, data = crawl_test(model, "", create_time, end_time)
-            i = i + 1
-            if i == 5:
-                is_ok = False
-                data = None
-            # is_ok, data = crawl(username, password, model, item['telemetry_name'], create_time, end_time)
-            if is_ok:
-                item["data"] = data
-                self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
-                self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
-            else:
-                if data is None or data == []:
-                    self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
-                    self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
-                else:
-                    message_box = MyMessageBox()
-                    message_box.setContent("读取失败", str(data))
-                    message_box.exec_()
-                    self.crawl_status = False
-                    return
-            QApplication.processEvents()
+            tmp_thread = CrawlThread(item, username, password, model, item['telemetry_name'], create_time, end_time)
+            tmp_thread._signal.connect(self.crawl_callback)
+            thread_list.append(tmp_thread)
 
-        self.crawl_status = False
-        self.raw_data = copy.deepcopy(self.excel_data)
-        # 切换到数据分析标签，并填充数据
-        self.hidden_frame('data_analysis')
-        self.update_talbe2()
+        # 开始线程
+        for thread in thread_list:
+            thread.start()
 
-        # 爬取成功，保存账户和密码
-        self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # while 1:
+        #     time.sleep(1)
+        #     if None not in self.crawl_status_list:
+        #         break
+
+
+        # # 创建新线程
+        # for item in self.excel_data:
+        #     threads.append(Thread(target=self.crawl_thread, args=(item, username, password, model, item['telemetry_name'], create_time, end_time)))
+        # # 开启新线程
+        # for thread in threads:
+        #     thread.start()
+        #
+        # # 等待所有线程完成
+        # for thread in threads:
+        #     thread.join()
+
+
+
+
 
     def manual_choice(self, r):
         self.fileinfo_table_2.selectRow(r)

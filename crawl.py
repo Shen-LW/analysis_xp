@@ -162,6 +162,18 @@ def crawldata_other(cookie):
         print(path, "写入成功")
 
 
+def check_login(username, password):
+    cookie = get_cookie(username, password)
+    date_stamp = int(time.time() * 1000)
+    # 解析型号名称
+    modellist = crawl_menu(cookie, date_stamp)
+    if modellist is None or modellist == []:
+        return False
+    else:
+        return True
+
+
+
 def crawl(username, password, model_name, telemetry_name, start_time, end_time):
     start_time = trans_time(start_time)
     end_time = trans_time(end_time)
@@ -199,7 +211,7 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
 
 def crawl_test(model_name, telemetry_name, start_time, end_time):
     # return False, "用户名或密码错误"
-    time.sleep(0.3)
+    time.sleep(random.randint(1, 10))
     # 生成随机数据
     data = '''
     {
