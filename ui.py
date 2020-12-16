@@ -13,7 +13,7 @@ from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, \
-    QHeaderView
+    QHeaderView, QAbstractItemView
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from docx import Document
@@ -57,6 +57,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.upload_excel_btn.clicked.connect(self.choose_excel)
         self.crawl_btn.clicked.connect(self.crawl)
         self.report_docx_btn.clicked.connect(self.report_excel)
+        self.fileinfo_table_2.itemChanged.connect(self.table_update)
         self.edit_btn.clicked.connect(self.edit_model)
         self.delete_btn.clicked.connect(self.delete_data)
         self.undo_btn.clicked.connect(self.delete_undo)
@@ -76,6 +77,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.label_3.setPixmap(logo)
         self.label_3.setScaledContents(True)
         self.hidden_frame('data_get')
+
         # 加载默认设置
         login_config = self.config.get_login()
         if login_config['username']:
@@ -280,6 +282,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table.setItem(r, 8, QTableWidgetItem(str(item['params_two'])))
             self.fileinfo_table.setItem(r, 9, QTableWidgetItem(str(item['params_three'])))
             self.fileinfo_table.setItem(r, 10, QTableWidgetItem(str(item['params_four'])))
+        # 表格1禁止编辑
+        self.fileinfo_table.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
 
     def getSelectButton(self, id):
         # 手动剔野
@@ -624,12 +628,30 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.select_indexs = self.get_select_indexs()
         QApplication.processEvents()
 
+
+    def update_choice_parms(self):
+        # 通过界面剔野参数跟新源数据
+        for item in self.excel_data:
+            index = self.excel_data.index(item)
+            item['normal_range'] = self.fileinfo_table_2.item(int(index), 4).text()
+            item['telemetry_source'] = self.fileinfo_table_2.item(int(index), 5).text()
+            item['img_num'] = self.fileinfo_table_2.item(int(index), 6).text()
+            item['table_num'] = self.fileinfo_table_2.item(int(index), 7).text()
+            item['params_one'] = self.fileinfo_table_2.item(int(index), 8).text()
+            item['params_two'] = self.fileinfo_table_2.item(int(index), 9).text()
+            item['params_three'] = self.fileinfo_table_2.item(int(index), 10).text()
+            item['params_four'] = self.fileinfo_table_2.item(int(index), 11).text()
+
+
+
     def auto_choice(self):
         if not self.select_indexs:
             message_box = MyMessageBox()
             message_box.setContent("自动剔野", "请勾选自动剔野项")
             message_box.exec_()
             return
+
+        self.update_choice_parms()
 
         tmp_data = collections.OrderedDict()
         for i in range(len(self.excel_data)):
@@ -765,6 +787,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             return True
         return False
 
+
     def report_excel(self):
         # 选择路径与文件名
         reportname = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y%m%d%H%M') + '.docx')
@@ -774,7 +797,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
                                                                           "Execl Files (*.docx;)")  # 设置文件扩展名过滤,用双分号间隔
         if fileName_choose == "":
             return
-
+        self.update_choice_parms()
         # 准备数据
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
@@ -876,6 +899,18 @@ class UiTest(QMainWindow, Ui_MainWindow):
         message_box = MyMessageBox()
         message_box.setContent("生成表格", "word文档生成成功")
         message_box.exec_()
+
+
+    def table_update(self):
+        # 等到了剔野是再统一修改剔野参数
+        pass
+        # row_select = self.fileinfo_table_2.selectedItems()
+        # if len(row_select) == 0:
+        #     return
+        # id = row_select[0].text()
+        # # new_name = row_select[1].text()
+        # print("id: {}".format(id))
+
 
     def create_table1_data(self):
         data = []
