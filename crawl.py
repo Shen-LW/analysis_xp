@@ -50,8 +50,7 @@ def crawl_menu(cookie, date_stamp):
     return items['nodes']
 
 
-# 是否翻页需要测试
-def find_grant(date_stamp, cookie, sat_id):
+def find_grant(date_stamp, cookie, sat_id, telemetry_name):
     menu_headers = {
         'Cookie': cookie,
         'Host': 'www.ygzx.cast',
@@ -64,7 +63,7 @@ def find_grant(date_stamp, cookie, sat_id):
         '_dc': int(date_stamp),
         'sat_id': sat_id,
         'id': sat_id,
-        'key': '滚动',
+        'key': telemetry_name,
         'page': '1',
         'start': '0',
         'limit': '50',
@@ -128,40 +127,6 @@ def crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, 
     return data
 
 
-def crawldata_other(cookie):
-    # 根据参数爬取指定的数据
-    details_headers = {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'Cookie': cookie,
-        'Host': 'www.ygzx.cast',
-        'Origin': 'http://www.ygzx.cast',
-        'Referer': 'http://www.ygzx.cast/db/index.html',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.43 Safari/537.36',
-        'X-Requested-With': 'XMLHttpRequest',
-    }
-    tmid = ['58397', '58477']
-    for tm in tmid:
-        print(tm)
-        form_data = {
-            'type': '0',
-            'width': '1191',
-            'tmId': tm,  # 遥测名称对应的序号
-            # 'tmId': '58397',
-            'begin': '2020-08-30 13:45:00.000',
-            'end': '2020-09-03 13:45:00.000',
-            'dataType': '0',
-            'tiye': '',
-            # 'Begins':'1598766300000',
-            'mid': '4524',  # 型号对应id    # Begins:1598766300000  1598766300000
-        }
-        post_url = 'http://www.ygzx.cast/db/drawdata/drawdata.edq'
-        res = requests.post(url=post_url, headers=details_headers, data=form_data)
-        path = tm + '.txt'
-        with open(path, 'w', encoding="utf-8") as fp:
-            fp.write(res.text)
-        print(path, "写入成功")
-
-
 def check_login(username, password):
     cookie = get_cookie(username, password)
     date_stamp = int(time.time() * 1000)
@@ -195,7 +160,7 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
     # 解析遥测代号
     telemetry_id = None
     telemetry_num = None
-    numlist = find_grant(date_stamp, cookie, sys_resource_id)
+    numlist = find_grant(date_stamp, cookie, sys_resource_id, telemetry_name)
     for item in numlist:
         if item["name"] == telemetry_name:
             telemetry_id = item["id"]

@@ -29,5 +29,5 @@ class CrawlThread(QtCore.QThread):
         # time.sleep(0.3)
         # 测试，使用相同数据
         is_ok, data = crawl_test(self.model, "", self.create_time, self.end_time)
-        # is_ok, data = crawl(self.username, self.password, self.model, self.item['telemetry_name'], self.create_time, self.end_time)
+        # is_ok, data = crawl(self.username, self.password, self.model, self.telemetry_name, self.create_time, self.end_time)
         self._signal.emit((self.item, is_ok, data))

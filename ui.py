@@ -480,8 +480,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
 
 
-
-
     def manual_choice(self, r):
         self.fileinfo_table_2.selectRow(r)
         self.manual_item = self.excel_data[r]
@@ -494,7 +492,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.choice_data = copy.deepcopy(self.manual_item["data"])
         self.undo_list = []
         # 传递到手动剔野页面,更新数据
-        # todo 数据处理还需要完善
         raw = copy.deepcopy(self.raw_data[r]["data"])
         l_x, l_y = self.get_choice_data_xy(raw)
         r_x, r_y = self.get_choice_data_xy()
