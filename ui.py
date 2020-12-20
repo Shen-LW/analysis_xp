@@ -26,6 +26,7 @@ from myMessage import MyMessageBox
 from MyPlotWidget import MyPlotWidget
 from crawlThread import CrawlThread
 from settings import Settings
+from draw_win import DrawWindow
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -881,11 +882,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         # 生成图片
         for img_num, drafting_list in drafting_number.items():
+            image_path = self.create_docx_image([item['data'] for item in drafting_list])
+            document.add_picture(image_path)
             table1_title = document.add_paragraph("图" + img_num)
             table1_title = table1_title.paragraph_format
             table1_title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-            image_path = self.create_docx_image([item['data'] for item in drafting_list])
-            document.add_picture(image_path)
 
         document.add_heading('1.2 二浮陀螺在轨运行状况', level=1)
 
@@ -983,12 +984,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
         joint.save(save_path)
 
     def create_docx_image(self, data_list):
-        date_axis = TimeAxisItem(orientation='bottom')
         color_list = [(220, 20, 60), (0, 0, 255), (0, 255, 0), (255, 140, 0), (0, 255, 255), (255, 0, 255), (0, 0, 139)]
         index = 0
         split_name_list = []
         for data in data_list:
-            plt = pg.plot(axisItems={'bottom': date_axis})
             color = color_list[index % len(color_list)]
             index = index + 1
             x = []
@@ -996,24 +995,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
             for k, v in data.items():
                 x.append(self.timestr2timestamp(k))
                 y.append(float(v))
-            plt.plot(y=y, pen=pg.mkPen(QColor(color[0], color[1], color[2])))
-            # 生成多张需要拼接图片
-            exporter = ImageExporter(plt.plotItem)
-            exporter.parameters()['width'] = 800
-            exporter.parameters()['height'] = 400
-
-            split_name = 'tmp/' + 'split_' + str(index) + '.png'
-            exporter.export(split_name)
-            split_name_list.append(split_name)
+            draw = DrawWindow(index, color, x, y, split_name_list)
+            draw.showFullScreen()
 
         # 拼接图片
         file_name = 'tmp/' + str(uuid.uuid1()).replace('-', '') + '.png'
         self.split_image(split_name_list, file_name, flag='vertical')
-
-        # exporter = ImageExporter(plt.plotItem)
-        # exporter.parameters()['width'] = 800
-        # exporter.parameters()['height'] = 400
-        # exporter.export(file_name)
         return file_name
 
     def get_data_range(self, data):

@@ -176,7 +176,7 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
 
 def crawl_test(model_name, telemetry_name, start_time, end_time):
     # return False, "用户名或密码错误"
-    time.sleep(random.randint(1, 10))
+    # time.sleep(random.randint(1, 10))
     # 生成随机数据
     data = '''
     {
