@@ -242,7 +242,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             params_three = sheet_1.cell(i, 8).value
             params_four = sheet_1.cell(i, 9).value
             item = {
-                "status": '未爬取',
+                "status": '未读取',
                 'telemetry_name': telemetry_name,
                 'telemetry_num': telemetry_num,
                 'normal_range': normal_range,
@@ -354,9 +354,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             item = excel_data[r]
             selectBtn = self.getSelectButton(r)
             self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
-            tmp_text = "未剔野" if item['data'] else "数据爬取失败"
+            tmp_text = "未剔野" if item['data'] else "数据读取失败"
             self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
-            if tmp_text == '数据爬取失败':
+            if tmp_text == '数据读取失败':
                 self.fileinfo_table_2.item(r, 1).setBackground(QColor(255, 185, 15))
             self.fileinfo_table_2.setItem(r, 2, QTableWidgetItem(str(item['telemetry_name'])))
             self.fileinfo_table_2.setItem(r, 3, QTableWidgetItem(str(item['telemetry_num'])))
@@ -486,7 +486,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.manual_item = self.excel_data[r]
         if self.manual_item['data'] == [] or self.manual_item['data'] is None:
             message_box = MyMessageBox()
-            message_box.setContent("获取失败", "请检查数据后重新爬取")
+            message_box.setContent("获取失败", "请检查数据后重新读取")
             message_box.exec_()
             return
 
@@ -509,7 +509,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def select_row(self, r):
         if self.raw_data[r]['data'] == [] or self.raw_data[r]['data'] is None:
             message_box = MyMessageBox()
-            message_box.setContent("获取失败", "请检查数据后重新爬取")
+            message_box.setContent("获取失败", "请检查数据后重新读取")
             message_box.exec_()
             object_name = str(r) + '_select'
             checkbox = self.findChild(QCheckBox, object_name)
@@ -747,8 +747,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
                         float(item['data'][t]) > float(threshold[1]) or float(item['data'][t]) < float(threshold[0])):
                     number = number + 1
 
-            # 如果野点大于等于5，则用时间全部剔除
-            if number >= 5:
+            # 如果野点大于等于4，则用时间全部剔除
+            if number >= 4:
                 for item in source_data_dict.values():
                     item['data'][t] = 0
 
