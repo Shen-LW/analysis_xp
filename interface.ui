@@ -454,7 +454,7 @@ margin: 8px;</string>
       </attribute>
       <column>
        <property name="text">
-        <string>爬取状态</string>
+        <string>读取状态</string>
        </property>
       </column>
       <column>
@@ -734,11 +734,11 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
       <property name="frameShadow">
        <enum>QFrame::Raised</enum>
       </property>
-      <widget class="QLabel" name="label_10">
+      <widget class="QLabel" name="lable_10">
        <property name="geometry">
         <rect>
          <x>20</x>
-         <y>10</y>
+         <y>20</y>
          <width>101</width>
          <height>31</height>
         </rect>
@@ -765,6 +765,55 @@ border:0px;</string>
     </item>
     <item>
      <widget class="QWidget" name="l_widget" native="true"/>
+    </item>
+    <item>
+     <widget class="QFrame" name="frame_6">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>60</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>16777215</width>
+        <height>60</height>
+       </size>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <widget class="QLabel" name="position_lable">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>10</y>
+         <width>501</width>
+         <height>31</height>
+        </rect>
+       </property>
+       <property name="font">
+        <font>
+         <family>Microsoft YaHei UI</family>
+         <pointsize>14</pointsize>
+         <weight>9</weight>
+         <italic>false</italic>
+         <bold>false</bold>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color:#455ab3;
+font: 75 14pt &quot;Microsoft YaHei UI&quot;;
+border:0px;</string>
+       </property>
+       <property name="text">
+        <string>&lt;span style='font-size: 12pt'&gt;x=%0.1f,&lt;span style='color: red'&gt;y1=%0.1f&lt;/span&gt;</string>
+       </property>
+      </widget>
+     </widget>
     </item>
     <item>
      <widget class="QWidget" name="r_widget" native="true"/>
@@ -806,10 +855,10 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
         <string>保存数据</string>
        </property>
       </widget>
-      <widget class="QPushButton" name="edit_btn">
+      <widget class="QPushButton" name="manual_btn">
        <property name="geometry">
         <rect>
-         <x>310</x>
+         <x>180</x>
          <y>20</y>
          <width>110</width>
          <height>30</height>
@@ -820,7 +869,7 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
 font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
        <property name="text">
-        <string>编辑模式 (E)</string>
+        <string>手动模式 (M)</string>
        </property>
       </widget>
       <widget class="QPushButton" name="delete_btn">
@@ -837,7 +886,7 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
 font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
        <property name="text">
-        <string>批量删除 (D)</string>
+        <string>批量剔野 (D)</string>
        </property>
       </widget>
       <widget class="QPushButton" name="undo_btn">
@@ -855,6 +904,23 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
        <property name="text">
         <string>撤销</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="rate_btn">
+       <property name="geometry">
+        <rect>
+         <x>310</x>
+         <y>20</y>
+         <width>110</width>
+         <height>30</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color:#455ab3;color:#fff;
+font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
+       </property>
+       <property name="text">
+        <string>变化率模式 (R)</string>
        </property>
       </widget>
      </widget>

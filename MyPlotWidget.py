@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import datetime
 import pyqtgraph as pg
 from pyqtgraph import Point
 import numpy as np
@@ -6,20 +7,33 @@ from pyqtgraph.Qt import QtGui, QtCore
 
 
 class MyPlotWidget(pg.PlotWidget):
-    is_edit = False
+    is_manual_edit = False
+    is_rate_edit = False
     select_status = False
     x = 0
     y = 0
     region = None
     roi_range = None
+    position_lable = None
+    vLine = None
+    hLine = None
 
 
     def mousePressEvent(self, ev):
-        if self.is_edit:
+        if self.is_manual_edit:
             self.select_status = True
             point = self.plotItem.vb.mapSceneToView(ev.pos())
             self.x = point.x()
             self.y = point.y()
+        if self.is_rate_edit:
+            point = self.plotItem.vb.mapSceneToView(ev.pos())
+            # 添加竖线
+            base_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen('r', width=1))
+            self.addItem(base_line, ignoreBounds=True)
+            base_line.setPos(point.x())
+
+
+
         else:
             QtGui.QGraphicsView.mousePressEvent(self, ev)
 
@@ -32,9 +46,8 @@ class MyPlotWidget(pg.PlotWidget):
                 self.scene().clearSelection()
             return  ## Everything below disabled for now..
 
-
     def mouseReleaseEvent(self, ev):
-        if self.is_edit:
+        if self.is_manual_edit:
             self.select_status = False
             pos = self.region.pos()
             size = self.region.size()
@@ -61,9 +74,11 @@ class MyPlotWidget(pg.PlotWidget):
             self.lastButtonReleased = ev.button()
             return  ## Everything below disabled for now..
 
-
     def mouseMoveEvent(self, ev):
-        if self.is_edit and self.select_status:
+        if self.position_lable:
+            point = self.plotItem.vb.mapSceneToView(ev.pos())
+            self.updata_position(point.x(), point.y())
+        if self.is_manual_edit and self.select_status:
             point = self.plotItem.vb.mapSceneToView(ev.pos())
             # 注意反向的问题
             w = point.x() - self.x
@@ -98,4 +113,10 @@ class MyPlotWidget(pg.PlotWidget):
                 self.translate(tr[0], tr[1])
                 self.sigDeviceRangeChanged.emit(self, self.range)
 
-
+    def updata_position(self, x, y):
+        self.vLine.setPos(x)
+        self.hLine.setPos(y)
+        x = str(datetime.datetime.fromtimestamp(x))
+        y = str(y)
+        position = "<span style='font-size: 12pt'> 时间：" + x + "， <span style='color: red'>y= " + y + "</span>"
+        self.position_lable.setText(position)

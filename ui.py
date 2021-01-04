@@ -10,10 +10,10 @@ from threading import Thread, Lock
 import xlrd
 from PIL import Image
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QPixmap
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, \
-    QHeaderView, QAbstractItemView
+    QHeaderView, QAbstractItemView, QSplashScreen
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from docx import Document
@@ -59,7 +59,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.crawl_btn.clicked.connect(self.crawl)
         self.report_docx_btn.clicked.connect(self.report_excel)
         self.fileinfo_table_2.itemChanged.connect(self.table_update)
-        self.edit_btn.clicked.connect(self.edit_model)
+        self.manual_btn.clicked.connect(lambda: self.edit_model(77))  # 77: M
+        self.rate_btn.clicked.connect(lambda: self.edit_model(82))  # 82: R
         self.delete_btn.clicked.connect(self.delete_data)
         self.undo_btn.clicked.connect(self.delete_undo)
         self.save_change_btn.clicked.connect(self.save_chaneg)
@@ -193,7 +194,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_widget.layout().addWidget(self.r_pw)
         self.r_pw.region = self.region
         self.r_pw.l_widget = self.l_widget
-        # self.l_pw.autoPixelRange
+        self.r_pw.position_lable = self.position_lable
+        vLine = pg.InfiniteLine(angle=90, movable=False)
+        hLine = pg.InfiniteLine(angle=0, movable=False)
+        self.r_pw.addItem(vLine, ignoreBounds=True)
+        self.r_pw.addItem(hLine, ignoreBounds=True)
+        self.r_pw.vLine = vLine
+        self.r_pw.hLine = hLine
 
     def resizeEvent(self, *args, **kwargs):
         self.fileinfo_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -439,6 +446,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             pass
 
         # 判断账号密码是否正确
+        # todo: 发布前记得复原
         # if not check_login(username, password):
         #     message_box = MyMessageBox()
         #     message_box.setContent("读取失败", "账号或密码错误")
@@ -448,6 +456,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         #     # 保存账户和密码
         #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
+        self.config.change_login(self.username_edit.text(), self.password_edit.text())
         # 多线程爬取
         # 创建线程
         self.crawl_btn.setEnabled(False)
@@ -536,21 +545,38 @@ class UiTest(QMainWindow, Ui_MainWindow):
             return
         self.hidden_frame(tab_type)
 
-    def edit_model(self):
-        # 修改按钮背景色,以及编辑状态
-        if self.r_pw.is_edit:
-            self.r_pw.is_edit = False
-            self.edit_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
-            self.r_pw.removeItem(self.region)
-        else:
-            self.r_pw.is_edit = True
-            self.edit_btn.setStyleSheet('background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
-            self.r_pw.addItem(self.region, ignoreBounds=True)
+    def edit_model(self, key):
+        if key == Qt.Key_M:
+            self.rate_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+            self.r_pw.is_rate_edit = False
+            # 手动剔野修改按钮背景色,以及编辑状态
+            if self.r_pw.is_manual_edit:
+                self.r_pw.is_manual_edit = False
+                self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.r_pw.removeItem(self.region)
+            else:
+                self.r_pw.is_manual_edit = True
+                self.manual_btn.setStyleSheet(
+                    'background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.r_pw.addItem(self.region, ignoreBounds=True)
+        elif key == Qt.Key_R:
+            self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+            self.r_pw.is_manual_edit = False
+            if self.r_pw.is_rate_edit:
+                self.r_pw.is_rate_edit = False
+                self.rate_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                # todo 清理对应控件
+            else:
+                self.r_pw.is_rate_edit = True
+                self.rate_btn.setStyleSheet(
+                    'background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                # todo 添加对应控件
+
 
     def keyPressEvent(self, *args, **kwargs):
         key = args[0].key()
-        if key == Qt.Key_E:
-            self.edit_model()
+        if key == Qt.Key_M or key == Qt.Key_R:
+            self.edit_model(key)
         elif key == Qt.Key_D:
             self.delete_data()
 
@@ -568,24 +594,32 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     # 删除数据
     def delete_data(self):
-        # 选定区域
-        select_range = self.r_pw.roi_range
-        if select_range is None:
-            return
+        if self.r_pw.is_manual_edit:
+            # 选定区域
+            select_range = self.r_pw.roi_range
+            if select_range is None:
+                return
 
-        undo_data = copy.deepcopy(self.choice_data)
-        self.undo_list.append(undo_data)
+            undo_data = copy.deepcopy(self.choice_data)
+            self.undo_list.append(undo_data)
 
-        # 修改数据
-        for time_str, v in self.choice_data.items():
-            # 时间判断
-            f = self.timestr2timestamp(time_str)
-            if f >= select_range[0] and f <= select_range[2]:
-                if v > select_range[1] and v < select_range[3]:
-                    self.choice_data[time_str] = 0
+            # 修改数据
+            for time_str, v in self.choice_data.items():
+                # 时间判断
+                f = self.timestr2timestamp(time_str)
+                if f >= select_range[0] and f <= select_range[2]:
+                    if v > select_range[1] and v < select_range[3]:
+                        self.choice_data[time_str] = 0
 
-        x, y = self.get_choice_data_xy()
-        self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
+            x, y = self.get_choice_data_xy()
+            self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
+        elif self.r_pw.is_rate_edit:
+            pass
+
+
+
+
+
 
     def delete_undo(self):
         if self.undo_list:
@@ -1022,6 +1056,10 @@ class TimeAxisItem(pg.AxisItem):
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
+    splash = QSplashScreen(QPixmap(r"source/wait.png"))  # 启动界面图片地址
+    splash.show()
+    app.processEvents()
     ui = UiTest()
     ui.show()
+    splash.finish(ui)
     sys.exit(app.exec_())
