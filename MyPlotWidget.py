@@ -14,9 +14,11 @@ class MyPlotWidget(pg.PlotWidget):
     y = 0
     region = None
     roi_range = None
+    base_point_list = []
     position_lable = None
     vLine = None
     hLine = None
+    undo_base_point_list = None
 
 
     def mousePressEvent(self, ev):
@@ -31,8 +33,10 @@ class MyPlotWidget(pg.PlotWidget):
             base_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen('r', width=1))
             self.addItem(base_line, ignoreBounds=True)
             base_line.setPos(point.x())
-
-
+            if self.undo_base_point_list is not None:
+                self.base_point_list.append(datetime.datetime.fromtimestamp(point.x()))
+                self.base_point_list.sort()
+                self.undo_base_point_list.append(base_line)
 
         else:
             QtGui.QGraphicsView.mousePressEvent(self, ev)
@@ -120,3 +124,9 @@ class MyPlotWidget(pg.PlotWidget):
         y = str(y)
         position = "<span style='font-size: 12pt'> 时间：" + x + "， <span style='color: red'>y= " + y + "</span>"
         self.position_lable.setText(position)
+
+
+    def undo_base_line(self):
+        if self.undo_base_point_list:
+            self.removeItem(self.undo_base_point_list.pop())
+            self.base_point_list.pop()

@@ -810,7 +810,7 @@ font: 75 14pt &quot;Microsoft YaHei UI&quot;;
 border:0px;</string>
        </property>
        <property name="text">
-        <string>&lt;span style='font-size: 12pt'&gt;x=%0.1f,&lt;span style='color: red'&gt;y1=%0.1f&lt;/span&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;时间：%0.1f  &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#ff0000;&quot;&gt;y = %0.1f&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
      </widget>
@@ -858,7 +858,7 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
       <widget class="QPushButton" name="manual_btn">
        <property name="geometry">
         <rect>
-         <x>180</x>
+         <x>50</x>
          <y>20</y>
          <width>110</width>
          <height>30</height>
@@ -909,7 +909,7 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
       <widget class="QPushButton" name="rate_btn">
        <property name="geometry">
         <rect>
-         <x>310</x>
+         <x>180</x>
          <y>20</y>
          <width>110</width>
          <height>30</height>
@@ -921,6 +921,23 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
        <property name="text">
         <string>变化率模式 (R)</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="undo_base_btn">
+       <property name="geometry">
+        <rect>
+         <x>310</x>
+         <y>20</y>
+         <width>110</width>
+         <height>30</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color:#455ab3;color:#fff;
+font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
+       </property>
+       <property name="text">
+        <string>撤销基本点</string>
        </property>
       </widget>
      </widget>

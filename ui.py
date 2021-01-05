@@ -1,5 +1,6 @@
 import sys
 import os
+import math
 import datetime
 import time
 import copy
@@ -45,7 +46,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.select_indexs = []  # 自动剔野选择行数组
         self.l_plot_data = None  # 左侧绘图数据
         self.r_plot_data = None  # 右侧绘图数据
-        self.undo_list = []  # undo列表
+        self.undo_list = []  # undo队列
+        self.undo_base_point_list = []  # 变化率剔野基准点undo队列
         self.crawl_status = False
         self.setupUi(self)
         self.bing_signal()
@@ -63,6 +65,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.rate_btn.clicked.connect(lambda: self.edit_model(82))  # 82: R
         self.delete_btn.clicked.connect(self.delete_data)
         self.undo_btn.clicked.connect(self.delete_undo)
+        self.undo_base_btn.clicked.connect(self.undo_base_point)
         self.save_change_btn.clicked.connect(self.save_chaneg)
         self.select_all_btn.clicked.connect(self.select_all)
         self.auto_choice_btn.clicked.connect(self.auto_choice)
@@ -91,6 +94,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             choice_items.insert(0, '[]')
             self.auto_choices_cbbox.addItems(choice_items)
 
+        self.undo_base_btn.setEnabled(False)
+        self.undo_base_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+
     def hidden_frame(self, tab):
         style_1 = 'font: 75 12pt "微软雅黑";background-color: rgb(255, 255, 255);color:#455ab3;border-top-left-radius:15px;border-top-right-radius:15px;'
         style_2 = 'background-color: rgb(80, 103, 203);font: 75 12pt "微软雅黑";color: rgb(255, 255, 255);border-top-left-radius:15px;border-top-right-radius:15px;'
@@ -106,6 +112,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.l_widget.setHidden(True)
             self.r_widget.setHidden(True)
             self.frame_4.setHidden(True)
+            self.frame_6.setHidden(True)
 
             self.data_get_btn.setStyleSheet(style_1)
             self.data_analysis_btn.setStyleSheet(style_2)
@@ -122,6 +129,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.l_widget.setHidden(True)
             self.r_widget.setHidden(True)
             self.frame_4.setHidden(True)
+            self.frame_6.setHidden(True)
 
             self.data_get_btn.setStyleSheet(style_2)
             self.data_analysis_btn.setStyleSheet(style_1)
@@ -145,6 +153,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.l_widget.setHidden(False)
             self.r_widget.setHidden(False)
             self.frame_4.setHidden(False)
+            self.frame_6.setHidden(False)
 
             self.data_get_btn.setStyleSheet(style_2)
             self.data_analysis_btn.setStyleSheet(style_2)
@@ -201,6 +210,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_pw.addItem(hLine, ignoreBounds=True)
         self.r_pw.vLine = vLine
         self.r_pw.hLine = hLine
+        self.r_pw.undo_base_point_list = self.undo_base_point_list
 
     def resizeEvent(self, *args, **kwargs):
         self.fileinfo_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -548,6 +558,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def edit_model(self, key):
         if key == Qt.Key_M:
             self.rate_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+            self.undo_base_btn.setEnabled(False)
+            self.undo_base_btn.setStyleSheet(
+                'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
             self.r_pw.is_rate_edit = False
             # 手动剔野修改按钮背景色,以及编辑状态
             if self.r_pw.is_manual_edit:
@@ -565,12 +578,21 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if self.r_pw.is_rate_edit:
                 self.r_pw.is_rate_edit = False
                 self.rate_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.undo_base_btn.setEnabled(False)
+                self.undo_base_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
                 # todo 清理对应控件
             else:
                 self.r_pw.is_rate_edit = True
-                self.rate_btn.setStyleSheet(
-                    'background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.rate_btn.setStyleSheet('background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.undo_base_btn.setEnabled(True)
+                self.undo_base_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
                 # todo 添加对应控件
+
+
+    def undo_base_point(self):
+        self.r_pw.undo_base_line()
+
 
 
     def keyPressEvent(self, *args, **kwargs):
@@ -594,15 +616,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     # 删除数据
     def delete_data(self):
-        if self.r_pw.is_manual_edit:
+        if self.r_pw.is_manual_edit:  # 手动剔野
             # 选定区域
             select_range = self.r_pw.roi_range
             if select_range is None:
                 return
-
             undo_data = copy.deepcopy(self.choice_data)
             self.undo_list.append(undo_data)
-
             # 修改数据
             for time_str, v in self.choice_data.items():
                 # 时间判断
@@ -610,14 +630,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 if f >= select_range[0] and f <= select_range[2]:
                     if v > select_range[1] and v < select_range[3]:
                         self.choice_data[time_str] = 0
-
             x, y = self.get_choice_data_xy()
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
-        elif self.r_pw.is_rate_edit:
-            pass
-
-
-
+        elif self.r_pw.is_rate_edit:  # 变化率剔野
+            undo_data = copy.deepcopy(self.choice_data)
+            self.undo_list.append(undo_data)
+            # 获取基准点
+            base_point = self.r_pw.base_point_list
+            self.rate_choice(base_point, copy.deepcopy(self.choice_data))
 
 
 
@@ -626,6 +646,80 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.choice_data = self.undo_list.pop()
             x, y = self.get_choice_data_xy()
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
+
+    def rate_choice(self, base_point, choice_data):
+        # 获取基准点对应的时间, 统一取右边值
+        # 如果数据点太多的话，可以考虑用二叉搜索或者快速搜索
+        tmp_chice_data = copy.deepcopy(self.choice_data)
+        tmp_chice_data = list(tmp_chice_data.items())
+        start_time = datetime.datetime.strptime(tmp_chice_data[0][0], "%Y-%m-%d %H:%M:%S.%f")
+        end_time = datetime.datetime.strptime(tmp_chice_data[-1][0], "%Y-%m-%d %H:%M:%S.%f")
+        base_point = [item for item in base_point if item >= start_time and item < end_time].reverse()
+        correct_base_point = []
+        tmp_point = base_point.pop()
+        for index in range(len(tmp_chice_data)):
+            time_str, v = tmp_chice_data[index]
+            t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
+            if t >= tmp_point:
+                correct_base_point.append({"index": index, "time": t})
+                if base_point:
+                    tmp_point = base_point.pop()
+                else:
+                    break
+
+        # 构建基准点结构数组
+        base_point_struct_list = []
+        for index, t in correct_base_point.items():
+            base_point_struct_list.append({
+                "left_status": 1,  # 1: 运行剔野， 0: 剔野停止
+                "right_status": 1,
+                "left": index,  # 左边位置指针
+                "right": index,  # 右边位置指针
+                "left_outlier": None,  # 左边野点的最后位置
+                "right_outlier": None  # 右边野点的最后位置
+            })
+
+        # 对解构数组进行扩增，避免循环中的越界判断
+        base_point_struct_list.insert(0, {
+                "left_status": 0,
+                "right_status": 0,
+                "left": 0,
+                "right": 0,
+                "left_outlier": None,
+                "right_outlier": None
+            })
+        base_point_struct_list.append({
+                "left_status": 0,
+                "right_status": 0,
+                "left": len(tmp_chice_data),
+                "right": len(tmp_chice_data),
+                "left_outlier": None,
+                "right_outlier": None
+            })
+
+        correct_index_list = []  # 需要剔除的野点
+        number = math.ceil(len(tmp_chice_data) / (len(base_point_struct_list) - 2))  # 外部循环次数，每次对各个基准点处理一次
+        for i in range(number):
+            for index in range(1, len(base_point_struct_list) - 1):
+                point_struct = base_point_struct_list[index]
+                before_point_struct = base_point_struct_list[index - 1]
+                after_point_struct = base_point_struct_list[index + 1]
+                # 左边
+                if point_struct["left_status"] and point_struct["left"] >= before_point_struct['right']:
+                    pass
+                pass
+                # 右边
+
+
+
+
+
+
+
+
+
+
+
 
     def save_chaneg(self):
         message_box = MyMessageBox()
@@ -707,10 +801,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if self.check_choice('threshold', value['params_four']):
                 self.threshold_choice(index, value)
 
-        # 变化率剔野
-        for index, value in tmp_data.items():
-            if self.check_choice('rate', value['params_four']):
-                self.rate_choice(index, value)
+        # 变化率剔野和手动剔野合并
+        # # 变化率剔野
+        # for index, value in tmp_data.items():
+        #     if self.check_choice('rate', value['params_four']):
+        #         self.rate_choice(index, value)
 
         # 修改剔野状态
         for index, value in tmp_data.items():
@@ -801,9 +896,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         self.excel_data[int(index)]['data'] = value['data']
 
-    def rate_choice(self, index, data):
-        pass
-        # 异常值处理还有疑问
 
     def check_choice(self, module_name, params_four):
         params = params_four.replace("(", '').replace("（", '').replace(')', '').replace('）', ''). \

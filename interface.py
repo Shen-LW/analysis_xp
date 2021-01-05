@@ -330,7 +330,7 @@ class Ui_MainWindow(object):
 "font: 10pt \"Microsoft YaHei UI\";")
         self.save_change_btn.setObjectName("save_change_btn")
         self.manual_btn = QtWidgets.QPushButton(self.frame_4)
-        self.manual_btn.setGeometry(QtCore.QRect(180, 20, 110, 30))
+        self.manual_btn.setGeometry(QtCore.QRect(50, 20, 110, 30))
         self.manual_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
 "font: 10pt \"Microsoft YaHei UI\";")
         self.manual_btn.setObjectName("manual_btn")
@@ -345,10 +345,15 @@ class Ui_MainWindow(object):
 "font: 10pt \"Microsoft YaHei UI\";")
         self.undo_btn.setObjectName("undo_btn")
         self.rate_btn = QtWidgets.QPushButton(self.frame_4)
-        self.rate_btn.setGeometry(QtCore.QRect(310, 20, 110, 30))
+        self.rate_btn.setGeometry(QtCore.QRect(180, 20, 110, 30))
         self.rate_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
 "font: 10pt \"Microsoft YaHei UI\";")
         self.rate_btn.setObjectName("rate_btn")
+        self.undo_base_btn = QtWidgets.QPushButton(self.frame_4)
+        self.undo_base_btn.setGeometry(QtCore.QRect(310, 20, 110, 30))
+        self.undo_base_btn.setStyleSheet("background-color:#455ab3;color:#fff;\n"
+"font: 10pt \"Microsoft YaHei UI\";")
+        self.undo_base_btn.setObjectName("undo_base_btn")
         self.verticalLayout.addWidget(self.frame_4)
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
@@ -427,10 +432,11 @@ class Ui_MainWindow(object):
         item = self.fileinfo_table_2.horizontalHeaderItem(12)
         item.setText(_translate("MainWindow", "查看数据"))
         self.lable_10.setText(_translate("MainWindow", "手动剔野"))
-        self.position_lable.setText(_translate("MainWindow", "<span style=\'font-size: 12pt\'>x=%0.1f,<span style=\'color: red\'>y1=%0.1f</span>"))
+        self.position_lable.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">时间：%0.1f  </span><span style=\" font-size:12pt; color:#ff0000;\">y = %0.1f</span></p></body></html>"))
         self.save_change_btn.setText(_translate("MainWindow", "保存数据"))
         self.manual_btn.setText(_translate("MainWindow", "手动模式 (M)"))
         self.delete_btn.setText(_translate("MainWindow", "批量剔野 (D)"))
         self.undo_btn.setText(_translate("MainWindow", "撤销"))
         self.rate_btn.setText(_translate("MainWindow", "变化率模式 (R)"))
+        self.undo_base_btn.setText(_translate("MainWindow", "撤销基本点"))
 
