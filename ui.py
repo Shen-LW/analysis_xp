@@ -95,7 +95,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.auto_choices_cbbox.addItems(choice_items)
 
         self.undo_base_btn.setEnabled(False)
-        self.undo_base_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+        self.undo_base_btn.setStyleSheet(
+            'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
 
     def hidden_frame(self, tab):
         style_1 = 'font: 75 12pt "微软雅黑";background-color: rgb(255, 255, 255);color:#455ab3;border-top-left-radius:15px;border-top-right-radius:15px;'
@@ -278,7 +279,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.crawl_btn.setEnabled(True)
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
 
-
     def update_talbe1(self):
         count = self.fileinfo_table.rowCount()
         for i in range(count):
@@ -389,7 +389,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
             # self.fileinfo_table_2.setItem(r, 9, QTableWidgetItem(str(item['params_four'])))
 
-
     def crawl_thread(self, item, username, password, model, telemetry_name, create_time, end_time):
         index = self.excel_data.index(item)
         time.sleep(0.3)
@@ -404,7 +403,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
         QApplication.processEvents()
-
 
     def crawl_callback(self, msg):
         item, is_ok, data = msg
@@ -425,8 +423,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             # 切换到数据分析标签，并填充数据
             self.hidden_frame('data_analysis')
             self.update_talbe2()
-
-
 
     def crawl(self):
         if not self.excel_data:
@@ -486,7 +482,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         #     if None not in self.crawl_status_list:
         #         break
 
-
         # # 创建新线程
         # for item in self.excel_data:
         #     threads.append(Thread(target=self.crawl_thread, args=(item, username, password, model, item['telemetry_name'], create_time, end_time)))
@@ -497,8 +492,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # # 等待所有线程完成
         # for thread in threads:
         #     thread.join()
-
-
 
     def manual_choice(self, r):
         self.fileinfo_table_2.selectRow(r)
@@ -589,11 +582,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.undo_base_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
                 # todo 添加对应控件
 
-
     def undo_base_point(self):
         self.r_pw.undo_base_line()
-
-
 
     def keyPressEvent(self, *args, **kwargs):
         key = args[0].key()
@@ -637,9 +627,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.undo_list.append(undo_data)
             # 获取基准点
             base_point = self.r_pw.base_point_list
-            self.rate_choice(base_point, copy.deepcopy(self.choice_data))
-
-
+            self.rate_choice(base_point, 0.3)
+            x, y = self.get_choice_data_xy()
+            self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
     def delete_undo(self):
         if self.undo_list:
@@ -647,21 +637,26 @@ class UiTest(QMainWindow, Ui_MainWindow):
             x, y = self.get_choice_data_xy()
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
-    def rate_choice(self, base_point, choice_data):
+    def rate_choice(self, base_point, normal_rate):
         # 获取基准点对应的时间, 统一取右边值
         # 如果数据点太多的话，可以考虑用二叉搜索或者快速搜索
         tmp_chice_data = copy.deepcopy(self.choice_data)
         tmp_chice_data = list(tmp_chice_data.items())
         start_time = datetime.datetime.strptime(tmp_chice_data[0][0], "%Y-%m-%d %H:%M:%S.%f")
         end_time = datetime.datetime.strptime(tmp_chice_data[-1][0], "%Y-%m-%d %H:%M:%S.%f")
-        base_point = [item for item in base_point if item >= start_time and item < end_time].reverse()
+
+        a = base_point[0] > start_time
+        b = base_point[0] < end_time
+
+        base_point = [item for item in base_point if (item >= start_time and item < end_time)]
+        base_point.reverse()
         correct_base_point = []
         tmp_point = base_point.pop()
         for index in range(len(tmp_chice_data)):
             time_str, v = tmp_chice_data[index]
             t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
             if t >= tmp_point:
-                correct_base_point.append({"index": index, "time": t})
+                correct_base_point.append((index, t))
                 if base_point:
                     tmp_point = base_point.pop()
                 else:
@@ -669,57 +664,128 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         # 构建基准点结构数组
         base_point_struct_list = []
-        for index, t in correct_base_point.items():
+        for index, t in correct_base_point:
             base_point_struct_list.append({
                 "left_status": 1,  # 1: 运行剔野， 0: 剔野停止
                 "right_status": 1,
-                "left": index,  # 左边位置指针
-                "right": index,  # 右边位置指针
+                "left": index - 1,  # 左边位置指针
+                "right": index + 1,  # 右边位置指针
                 "left_outlier": None,  # 左边野点的最后位置
-                "right_outlier": None  # 右边野点的最后位置
+                "right_outlier": None,  # 右边野点的最后位置
+                "left_normal": index,  # 左边最后一个正常点
+                "right_normal": index,  # 右边最后一个正常点
             })
 
         # 对解构数组进行扩增，避免循环中的越界判断
         base_point_struct_list.insert(0, {
-                "left_status": 0,
-                "right_status": 0,
-                "left": 0,
-                "right": 0,
-                "left_outlier": None,
-                "right_outlier": None
-            })
+            "left_status": 0,
+            "right_status": 0,
+            "left": 0,
+            "right": 0,
+            "left_outlier": None,
+            "right_outlier": None,
+            "left_normal": None,
+            "right_normal": None
+        })
         base_point_struct_list.append({
-                "left_status": 0,
-                "right_status": 0,
-                "left": len(tmp_chice_data),
-                "right": len(tmp_chice_data),
-                "left_outlier": None,
-                "right_outlier": None
-            })
+            "left_status": 0,
+            "right_status": 0,
+            "left": len(tmp_chice_data),
+            "right": len(tmp_chice_data),
+            "left_outlier": None,
+            "right_outlier": None,
+            "left_normal": None,
+            "right_normal": None
+        })
 
+        # 开始剔野
         correct_index_list = []  # 需要剔除的野点
         number = math.ceil(len(tmp_chice_data) / (len(base_point_struct_list) - 2))  # 外部循环次数，每次对各个基准点处理一次
         for i in range(number):
-            for index in range(1, len(base_point_struct_list) - 1):
-                point_struct = base_point_struct_list[index]
-                before_point_struct = base_point_struct_list[index - 1]
-                after_point_struct = base_point_struct_list[index + 1]
+            for n in range(1, len(base_point_struct_list) - 1):
+                point_struct = base_point_struct_list[n]
+                before_point_struct = base_point_struct_list[n - 1]
+                after_point_struct = base_point_struct_list[n + 1]
+                # 左右两边分别进行
                 # 左边
-                if point_struct["left_status"] and point_struct["left"] >= before_point_struct['right']:
-                    pass
-                pass
+                if point_struct["left_status"]:
+                    if point_struct["left"] < 0:
+                        point_struct["left_status"] = 0
+                    else:
+                        if point_struct["left"] >= before_point_struct['right']:
+                            curr_point = tmp_chice_data[point_struct["left"]]
+                            left_normal_point = tmp_chice_data[point_struct["left_normal"]]
+
+                            # 判断时间是否超过十分钟, 超过则停止该方向剔野
+                            curr_point_time = datetime.datetime.strptime(curr_point[0], "%Y-%m-%d %H:%M:%S.%f")
+                            left_normal_point_time = datetime.datetime.strptime(left_normal_point[0],
+                                                                                "%Y-%m-%d %H:%M:%S.%f")
+                            if (left_normal_point_time - curr_point_time) > datetime.timedelta(seconds=600):
+                                point_struct["left_status"] = 0
+                            # 判断变化率
+                            space = left_normal_point_time - curr_point_time
+                            space_s = space.seconds * 1000000 + space.microseconds
+                            if abs((left_normal_point[1] - curr_point[1]) / (space_s / 1000000)) > abs(normal_rate):
+                                # 野点
+                                correct_index_list.append(point_struct["left"])
+                                # 判断野点数是否超过十分钟, 停止剔野
+                                if point_struct["left_outlier"]:
+                                    befor_outlier_point = tmp_chice_data[point_struct["left_outlier"]]
+                                    befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
+                                                                                          "%Y-%m-%d %H:%M:%S.%f")
+                                    if (befor_outlier_point_time - curr_point_time) > datetime.timedelta(seconds=600):
+                                        point_struct["left_status"] = 0
+                                point_struct["left_outlier"] = point_struct["left"]
+                            else:
+                                # 正常点
+                                point_struct["left_normal"] = point_struct["left"]
+                            point_struct["left"] = point_struct["left"] - 1
+                        else:
+                            point_struct["left_status"] = 0
+
                 # 右边
+                if point_struct["right_status"]:
+                    if point_struct["right"] >= len(tmp_chice_data):
+                        point_struct["right_status"] = 0
+                    else:
+                        if point_struct["right"] <= after_point_struct['left']:
+                            curr_point = tmp_chice_data[point_struct["right"]]
+                            right_normal_point = tmp_chice_data[point_struct["right_normal"]]
+
+                            # 判断时间是否超过十分钟, 超过则停止该方向剔野
+                            curr_point_time = datetime.datetime.strptime(curr_point[0], "%Y-%m-%d %H:%M:%S.%f")
+                            right_normal_point_time = datetime.datetime.strptime(right_normal_point[0],
+                                                                                 "%Y-%m-%d %H:%M:%S.%f")
+                            if (curr_point_time - right_normal_point_time) > datetime.timedelta(seconds=600):
+                                point_struct["right_status"] = 0
+                            # 判断变化率
+                            space = curr_point_time - right_normal_point_time
+                            space_s = space.seconds * 1000000 + space.microseconds
+                            if abs((curr_point[1] - right_normal_point[1]) / (space_s / 1000000)) > abs(normal_rate):
+                                # 野点
+                                correct_index_list.append(point_struct["right"])
+                                # 判断野点数是否超过十分钟, 停止剔野
+                                if point_struct["right_outlier"]:
+                                    befor_outlier_point = tmp_chice_data[point_struct["right_outlier"]]
+                                    befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
+                                                                                          "%Y-%m-%d %H:%M:%S.%f")
+                                    if (curr_point_time - befor_outlier_point_time) > datetime.timedelta(seconds=600):
+                                        point_struct["right_status"] = 0
+                                point_struct["right_outlier"] = point_struct["right"]
+                            else:
+                                # 正常点
+                                point_struct["right_normal"] = point_struct["right"]
+                            point_struct["right"] = point_struct["right"] + 1
+                        else:
+                            point_struct["right_status"] = 0
 
 
-
-
-
-
-
-
-
-
-
+        correct_index_list.sort()
+        print(correct_index_list)
+        # 剔除野点
+        for index in correct_index_list:
+            time_str = tmp_chice_data[index][0]
+            self.choice_data[time_str] = 0
 
     def save_chaneg(self):
         message_box = MyMessageBox()
@@ -754,7 +820,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.select_indexs = self.get_select_indexs()
         QApplication.processEvents()
 
-
     def update_choice_parms(self):
         # 通过界面剔野参数跟新源数据
         for item in self.excel_data:
@@ -767,8 +832,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             item['params_two'] = self.fileinfo_table_2.item(int(index), 9).text()
             item['params_three'] = self.fileinfo_table_2.item(int(index), 10).text()
             item['params_four'] = self.fileinfo_table_2.item(int(index), 11).text()
-
-
 
     def auto_choice(self):
         if not self.select_indexs:
@@ -896,7 +959,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         self.excel_data[int(index)]['data'] = value['data']
 
-
     def check_choice(self, module_name, params_four):
         params = params_four.replace("(", '').replace("（", '').replace(')', '').replace('）', ''). \
             replace(' ', '').replace('，', ',')
@@ -910,7 +972,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         elif module_name == 'rate' and params[2] in [1, '1']:
             return True
         return False
-
 
     def report_excel(self):
         # 选择路径与文件名
@@ -1024,7 +1085,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         message_box.setContent("生成表格", "word文档生成成功")
         message_box.exec_()
 
-
     def table_update(self):
         # 等到了剔野是再统一修改剔野参数
         pass
@@ -1034,7 +1094,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # id = row_select[0].text()
         # # new_name = row_select[1].text()
         # print("id: {}".format(id))
-
 
     def create_table1_data(self):
         data = []

@@ -30,7 +30,7 @@ class MyPlotWidget(pg.PlotWidget):
         if self.is_rate_edit:
             point = self.plotItem.vb.mapSceneToView(ev.pos())
             # 添加竖线
-            base_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen('r', width=1))
+            base_line = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen('g', width=1))
             self.addItem(base_line, ignoreBounds=True)
             base_line.setPos(point.x())
             if self.undo_base_point_list is not None:
