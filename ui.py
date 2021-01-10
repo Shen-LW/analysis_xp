@@ -173,10 +173,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.manual_item = {}  # 当前操作的数据
         self.choice_data = []  # 剔野暂存数据
         self.select_indexs = []  # 自动剔野选择行数组
-        self.l_plot_data = None  # 左侧绘图数据
-        self.r_plot_data = None  # 右侧绘图数据
         self.undo_list = []  # undo列表
         self.crawl_status = False
+        # self.l_plot_data = None  # 左侧绘图数据
+        # self.r_plot_data = None  # 右侧绘图数据
+        if self.l_plot_data:
+            self.l_plot_data.setData(x=[], y=[], pen=pg.mkPen('g', width=1))
+        if self.r_plot_data:
+            self.r_plot_data.setData(x=[], y=[], pen=pg.mkPen('r', width=1))
+        self.l_pw.reset_rate_edit()
 
     def extar_control(self):
         # 左边框
@@ -517,6 +522,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         self.region.setSize([0, 0], [0, 0])
         self.hidden_frame('choice')
+        self.r_pw.reset_rate_edit()
 
     def select_row(self, r):
         if self.raw_data[r]['data'] == [] or self.raw_data[r]['data'] is None:
@@ -554,17 +560,31 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.undo_base_btn.setEnabled(False)
             self.undo_base_btn.setStyleSheet(
                 'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+            self.undo_base_btn.setHidden(True)
             self.r_pw.is_rate_edit = False
             # 手动剔野修改按钮背景色,以及编辑状态
             if self.r_pw.is_manual_edit:
                 self.r_pw.is_manual_edit = False
                 self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
                 self.r_pw.removeItem(self.region)
+                self.delete_btn.setEnabled(False)
+                self.delete_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.undo_btn.setEnabled(False)
+                self.undo_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.save_change_btn.setEnabled(False)
+                self.save_change_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
             else:
                 self.r_pw.is_manual_edit = True
                 self.manual_btn.setStyleSheet(
                     'background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
                 self.r_pw.addItem(self.region, ignoreBounds=True)
+                self.delete_btn.setEnabled(True)
+                self.delete_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.delete_btn.setText("批量删除(D)")
+                self.undo_btn.setEnabled(True)
+                self.undo_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.save_change_btn.setEnabled(True)
+                self.save_change_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
         elif key == Qt.Key_R:
             self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
             self.r_pw.is_manual_edit = False
@@ -574,13 +594,31 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.undo_base_btn.setEnabled(False)
                 self.undo_base_btn.setStyleSheet(
                     'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-                # todo 清理对应控件
+
+                self.delete_btn.setEnabled(False)
+                self.delete_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.undo_btn.setEnabled(False)
+                self.undo_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.save_change_btn.setEnabled(False)
+                self.save_change_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
             else:
                 self.r_pw.is_rate_edit = True
                 self.rate_btn.setStyleSheet('background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
                 self.undo_base_btn.setEnabled(True)
+                self.undo_base_btn.setHidden(False)
                 self.undo_base_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
-                # todo 添加对应控件
+                self.delete_btn.setEnabled(True)
+                self.delete_btn.setText("变化率剔野(D)")
+                self.delete_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.undo_btn.setEnabled(True)
+                self.undo_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.save_change_btn.setEnabled(True)
+                self.save_change_btn.setStyleSheet(
+                    'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+
 
     def undo_base_point(self):
         self.r_pw.undo_base_line()
@@ -638,15 +676,17 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
     def rate_choice(self, base_point, normal_rate):
+        if not base_point:
+            message_box = MyMessageBox()
+            message_box.setContent("提示", "前先选择基本点")
+            message_box.exec_()
+            return
         # 获取基准点对应的时间, 统一取右边值
         # 如果数据点太多的话，可以考虑用二叉搜索或者快速搜索
         tmp_chice_data = copy.deepcopy(self.choice_data)
         tmp_chice_data = list(tmp_chice_data.items())
         start_time = datetime.datetime.strptime(tmp_chice_data[0][0], "%Y-%m-%d %H:%M:%S.%f")
         end_time = datetime.datetime.strptime(tmp_chice_data[-1][0], "%Y-%m-%d %H:%M:%S.%f")
-
-        a = base_point[0] > start_time
-        b = base_point[0] < end_time
 
         base_point = [item for item in base_point if (item >= start_time and item < end_time)]
         base_point.reverse()
@@ -834,6 +874,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             item['params_four'] = self.fileinfo_table_2.item(int(index), 11).text()
 
     def auto_choice(self):
+        self.select_indexs = self.get_select_indexs()
         if not self.select_indexs:
             message_box = MyMessageBox()
             message_box.setContent("自动剔野", "请勾选自动剔野项")
@@ -1067,8 +1108,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 drafting_number[img_num] = []
             drafting_number[img_num].append(item)
 
+        # 制图名排血
+        img_nums = [k for k in drafting_number.keys()]
+        img_nums.sort()
         # 生成图片
-        for img_num, drafting_list in drafting_number.items():
+        for img_num in img_nums:
+            drafting_list = drafting_number[img_num]
             image_path = self.create_docx_image([item['data'] for item in drafting_list])
             document.add_picture(image_path)
             table1_title = document.add_paragraph("图" + img_num)

@@ -130,3 +130,11 @@ class MyPlotWidget(pg.PlotWidget):
         if self.undo_base_point_list:
             self.removeItem(self.undo_base_point_list.pop())
             self.base_point_list.pop()
+
+    def reset_rate_edit(self):
+        if self.undo_base_point_list:
+            for i in range(len(self.undo_base_point_list)):
+                if self.undo_base_point_list:
+                    self.removeItem(self.undo_base_point_list.pop())
+                    self.base_point_list.pop()
+        self.is_rate_edit = False
