@@ -321,7 +321,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 手动剔野
         updateBtn = QPushButton('手动剔野')
         updateBtn.setStyleSheet(''' text-align : center; background-color : Orange; margin : 5px;
-                                    border-style: outset; font: 10pt "Microsoft YaHei UI";  ''')
+                                    border-style: outmanual_choset; font: 10pt "Microsoft YaHei UI";  ''')
         updateBtn.clicked.connect(lambda: self.manual_choice(id))
         return updateBtn
 
@@ -500,13 +500,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def manual_choice(self, r):
         self.fileinfo_table_2.selectRow(r)
+        self.update_choice_parms()
         self.manual_item = self.excel_data[r]
         if self.manual_item['data'] == [] or self.manual_item['data'] is None:
             message_box = MyMessageBox()
             message_box.setContent("获取失败", "请检查数据后重新读取")
             message_box.exec_()
             return
-
         self.choice_data = copy.deepcopy(self.manual_item["data"])
         self.undo_list = []
         # 传递到手动剔野页面,更新数据
@@ -520,9 +520,30 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
             self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
 
+        # 手动剔野界面状态重置
         self.region.setSize([0, 0], [0, 0])
         self.hidden_frame('choice')
         self.r_pw.reset_rate_edit()
+        self.r_pw.is_manual_edit = False
+        self.r_pw.is_rate_edit = False
+
+        self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+        self.rate_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+
+        self.undo_base_btn.setEnabled(False)
+        self.undo_base_btn.setStyleSheet(
+            'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+        self.delete_btn.setEnabled(False)
+        self.delete_btn.setStyleSheet(
+            'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+        self.undo_btn.setEnabled(False)
+        self.undo_btn.setStyleSheet(
+            'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+        self.save_change_btn.setEnabled(False)
+        self.save_change_btn.setStyleSheet(
+            'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+
+
 
     def select_row(self, r):
         if self.raw_data[r]['data'] == [] or self.raw_data[r]['data'] is None:
@@ -562,6 +583,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
             self.undo_base_btn.setHidden(True)
             self.r_pw.is_rate_edit = False
+            self.r_pw.reset_rate_edit()
             # 手动剔野修改按钮背景色,以及编辑状态
             if self.r_pw.is_manual_edit:
                 self.r_pw.is_manual_edit = False
@@ -588,6 +610,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         elif key == Qt.Key_R:
             self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
             self.r_pw.is_manual_edit = False
+            self.r_pw.removeItem(self.region)
             if self.r_pw.is_rate_edit:
                 self.r_pw.is_rate_edit = False
                 self.rate_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
@@ -665,7 +688,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.undo_list.append(undo_data)
             # 获取基准点
             base_point = self.r_pw.base_point_list
-            self.rate_choice(base_point, 0.3)
+            normal_rate = self.manual_item['params_three']
+            self.rate_choice(base_point, float(normal_rate))
             x, y = self.get_choice_data_xy()
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
@@ -775,10 +799,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
                                                                                           "%Y-%m-%d %H:%M:%S.%f")
                                     if (befor_outlier_point_time - curr_point_time) > datetime.timedelta(seconds=600):
                                         point_struct["left_status"] = 0
-                                point_struct["left_outlier"] = point_struct["left"]
+                                else:
+                                    point_struct["left_outlier"] = point_struct["left"]
                             else:
                                 # 正常点
                                 point_struct["left_normal"] = point_struct["left"]
+                                point_struct["left_outlier"] = None
                             point_struct["left"] = point_struct["left"] - 1
                         else:
                             point_struct["left_status"] = 0
@@ -811,10 +837,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
                                                                                           "%Y-%m-%d %H:%M:%S.%f")
                                     if (curr_point_time - befor_outlier_point_time) > datetime.timedelta(seconds=600):
                                         point_struct["right_status"] = 0
-                                point_struct["right_outlier"] = point_struct["right"]
+                                else:
+                                    point_struct["right_outlier"] = point_struct["right"]
                             else:
                                 # 正常点
                                 point_struct["right_normal"] = point_struct["right"]
+                                point_struct["right_outlier"] = None
                             point_struct["right"] = point_struct["right"] + 1
                         else:
                             point_struct["right_status"] = 0
@@ -1131,7 +1159,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         message_box.exec_()
 
     def table_update(self):
-        # 等到了剔野是再统一修改剔野参数
+        # 在剔野中再统一修改剔野参数
         pass
         # row_select = self.fileinfo_table_2.selectedItems()
         # if len(row_select) == 0:
