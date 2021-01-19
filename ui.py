@@ -447,6 +447,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box = MyMessageBox()
             message_box.setContent("参数缺失", "请完善参数信息")
             message_box.exec_()
+            return 
             # pass
 
         # 判断账号密码是否正确
