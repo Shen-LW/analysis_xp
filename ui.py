@@ -188,7 +188,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         l_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
         self.l_widget.setLayout(l_plot_layout)  # 设置K线图部件的布局层
         l_date_axis = TimeAxisItem(orientation='bottom')
-        # self.l_pw = pg.PlotWidget(self, axisItems={'bottom': l_date_axis})  # 创建一个绘图控件
         self.l_pw = MyPlotWidget(self, axisItems={'bottom': l_date_axis})  # 创建一个绘图控件
         self.l_pw.showGrid(x=True, y=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
@@ -198,13 +197,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         r_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
         self.r_widget.setLayout(r_plot_layout)  # 设置K线图部件的布局层
         r_date_axis = TimeAxisItem(orientation='bottom')
-        # self.r_pw = pg.PlotWidget(self, axisItems={'bottom': r_date_axis})  # 创建一个绘图控件
         self.r_pw = MyPlotWidget(self, axisItems={'bottom': r_date_axis})  # 创建一个绘图控件
         self.r_pw.showGrid(x=True, y=True)
-        # self.region = pg.LinearRegionItem()
-        # self.region = pg.RectROI([0, 0], [0, 0], pen=pg.mkPen('g', width=1))
-        # # self.region.setRegion([0, 0])
-        # self.r_pw.addItem(self.region, ignoreBounds=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
         self.r_widget.layout().addWidget(self.r_pw)
         self.r_pw.region = self.region
@@ -392,22 +386,22 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setItem(r, 11, QTableWidgetItem(str(item['params_four'])))
             updateBtn = self.buttonForRow(r)
             self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
-            # self.fileinfo_table_2.setItem(r, 9, QTableWidgetItem(str(item['params_four'])))
 
-    def crawl_thread(self, item, username, password, model, telemetry_name, create_time, end_time):
-        index = self.excel_data.index(item)
-        time.sleep(0.3)
-        # 测试，使用相同数据
-        is_ok, data = crawl_test(model, "", create_time, end_time)
-        # is_ok, data = crawl(username, password, model, item['telemetry_name'], create_time, end_time)
-        if is_ok:
-            item["data"] = data
-            self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
-            self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
-        else:
-            self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
-            self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
-        QApplication.processEvents()
+    # 已转换为使用多线程爬取
+    # def crawl_thread(self, item, username, password, model, telemetry_name, create_time, end_time):
+    #     index = self.excel_data.index(item)
+    #     time.sleep(0.3)
+    #     # 测试，使用相同数据
+    #     # is_ok, data = crawl_test(model, "", create_time, end_time)
+    #     is_ok, data = crawl(username, password, model, item['telemetry_name'], create_time, end_time)
+    #     if is_ok:
+    #         item["data"] = data
+    #         self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
+    #         self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
+    #     else:
+    #         self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
+    #         self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
+    #     QApplication.processEvents()
 
     def crawl_callback(self, msg):
         item, is_ok, data = msg
@@ -442,7 +436,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
 
-        self.crawl_status = True
         # 检查各个控件参数
         username = self.username_edit.text()
         password = self.password_edit.text()
@@ -451,22 +444,31 @@ class UiTest(QMainWindow, Ui_MainWindow):
         end_time = self.end_time_edit.text()
 
         if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-            # message_box = MyMessageBox()
-            # message_box.setContent("参数缺失", "请完善参数信息")
-            # message_box.exec_()
-            pass
+            message_box = MyMessageBox()
+            message_box.setContent("参数缺失", "请完善参数信息")
+            message_box.exec_()
+            # pass
 
         # 判断账号密码是否正确
         # todo: 发布前记得复原
-        # if not check_login(username, password):
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("读取失败", "账号或密码错误")
-        #     message_box.exec_()
-        #     return
-        # else:
-        #     # 保存账户和密码
-        #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        try:
+            is_login = check_login(username, password)
+        except:
+            message_box = MyMessageBox()
+            message_box.setContent("登录失败", "网络连接失败")
+            message_box.exec_()
+            return
 
+        if not is_login:
+            message_box = MyMessageBox()
+            message_box.setContent("读取失败", "账号或密码错误")
+            message_box.exec_()
+            return
+        else:
+            # 保存账户和密码
+            self.config.change_login(self.username_edit.text(), self.password_edit.text())
+
+        self.crawl_status = True
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
         # 多线程爬取
         # 创建线程
@@ -1161,12 +1163,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def table_update(self):
         # 在剔野中再统一修改剔野参数
         pass
-        # row_select = self.fileinfo_table_2.selectedItems()
-        # if len(row_select) == 0:
-        #     return
-        # id = row_select[0].text()
-        # # new_name = row_select[1].text()
-        # print("id: {}".format(id))
 
     def create_table1_data(self):
         data = []
