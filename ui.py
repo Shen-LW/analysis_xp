@@ -6,7 +6,7 @@ import time
 import copy
 import uuid
 import collections
-from threading import Thread, Lock
+import json
 
 import xlrd
 from PIL import Image
@@ -14,9 +14,8 @@ from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QColor, QPixmap
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, \
-    QHeaderView, QAbstractItemView, QSplashScreen
+    QHeaderView, QSplashScreen
 import pyqtgraph as pg
-from pyqtgraph.exporters import ImageExporter
 from docx import Document
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.oxml.ns import qn
@@ -76,8 +75,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.choice_btn.clicked.connect(lambda: self.select_tab('choice'))
 
     def init_style(self):
-        # self.setWindowFlags(Qt.FramelessWindowHint)
-        # self.fileinfo_table_2.setSelectionBehavior(QAbstractItemView.SelectRows);
         logo = QtGui.QPixmap('source/logo.png')
         self.label_3.setPixmap(logo)
         self.label_3.setScaledContents(True)
@@ -175,8 +172,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.select_indexs = []  # 自动剔野选择行数组
         self.undo_list = []  # undo列表
         self.crawl_status = False
-        # self.l_plot_data = None  # 左侧绘图数据
-        # self.r_plot_data = None  # 右侧绘图数据
         if self.l_plot_data:
             self.l_plot_data.setData(x=[], y=[], pen=pg.mkPen('g', width=1))
         if self.r_plot_data:
@@ -319,45 +314,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         updateBtn.clicked.connect(lambda: self.manual_choice(id))
         return updateBtn
 
-        # # 列表内添加按钮
-        # def buttonForRow(self, id):
-        #     widget = QWidget()
-        #     # 修改
-        #     updateBtn = QPushButton('修改')
-        #     updateBtn.setStyleSheet(''' text-align : center;
-        #                                           background-color : NavajoWhite;
-        #                                           height : 30px;
-        #                                           border-style: outset;
-        #                                           font : 13px  ''')
-        #
-        #     updateBtn.clicked.connect(lambda: self.updateTable(id))
-        #
-        #     # 查看
-        #     viewBtn = QPushButton('查看')
-        #     viewBtn.setStyleSheet(''' text-align : center;
-        #                                   background-color : DarkSeaGreen;
-        #                                   height : 30px;
-        #                                   border-style: outset;
-        #                                   font : 13px; ''')
-        #
-        #     viewBtn.clicked.connect(lambda: self.viewTable(id))
-        #
-        #     # 删除
-        #     deleteBtn = QPushButton('删除')
-        #     deleteBtn.setStyleSheet(''' text-align : center;
-        #                                     background-color : LightCoral;
-        #                                     height : 30px;
-        #                                     border-style: outset;
-        #                                     font : 13px; ''')
-        #
-        #     hLayout = QHBoxLayout()
-        #     hLayout.addWidget(updateBtn)
-        #     hLayout.addWidget(viewBtn)
-        #     hLayout.addWidget(deleteBtn)
-        #     hLayout.setContentsMargins(5, 2, 5, 2)
-        #     widget.setLayout(hLayout)
-        #     return widget
-
     def update_talbe2(self):
         count = self.fileinfo_table_2.rowCount()
         for i in range(count):
@@ -386,22 +342,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setItem(r, 11, QTableWidgetItem(str(item['params_four'])))
             updateBtn = self.buttonForRow(r)
             self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
-
-    # 已转换为使用多线程爬取
-    # def crawl_thread(self, item, username, password, model, telemetry_name, create_time, end_time):
-    #     index = self.excel_data.index(item)
-    #     time.sleep(0.3)
-    #     # 测试，使用相同数据
-    #     # is_ok, data = crawl_test(model, "", create_time, end_time)
-    #     is_ok, data = crawl(username, password, model, item['telemetry_name'], create_time, end_time)
-    #     if is_ok:
-    #         item["data"] = data
-    #         self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
-    #         self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
-    #     else:
-    #         self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
-    #         self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
-    #     QApplication.processEvents()
 
     def crawl_callback(self, msg):
         item, is_ok, data = msg
@@ -448,10 +388,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.setContent("参数缺失", "请完善参数信息")
             message_box.exec_()
             return
-            # pass
 
-        # 判断账号密码是否正确
         # todo: 发布前记得复原
+        # self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # 判断账号密码是否正确
         try:
             is_login = check_login(username, password)
         except:
@@ -485,21 +425,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         for thread in thread_list:
             thread.start()
 
-        # while 1:
-        #     time.sleep(1)
-        #     if None not in self.crawl_status_list:
-        #         break
-
-        # # 创建新线程
-        # for item in self.excel_data:
-        #     threads.append(Thread(target=self.crawl_thread, args=(item, username, password, model, item['telemetry_name'], create_time, end_time)))
-        # # 开启新线程
-        # for thread in threads:
-        #     thread.start()
-        #
-        # # 等待所有线程完成
-        # for thread in threads:
-        #     thread.join()
 
     def manual_choice(self, r):
         self.fileinfo_table_2.selectRow(r)
@@ -936,11 +861,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if self.check_choice('threshold', value['params_four']):
                 self.threshold_choice(index, value)
 
-        # 变化率剔野和手动剔野合并
-        # # 变化率剔野
-        # for index, value in tmp_data.items():
-        #     if self.check_choice('rate', value['params_four']):
-        #         self.rate_choice(index, value)
+        # 变化率剔野和手动剔野已合并
 
         # 修改剔野状态
         for index, value in tmp_data.items():
@@ -953,8 +874,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         message_box.exec_()
 
     # 选择自动剔野保存项
-    def change_auto_choice_index(self):
-        curr_index = self.auto_choices_cbbox.currentIndex()
+    def change_auto_choice_index(self, curr_index=None):
+        if not curr_index:
+            curr_index = self.auto_choices_cbbox.currentIndex()
         number = len(self.raw_data)
         # 清除原有选择
         for i in range(number):
@@ -988,6 +910,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box = MyMessageBox()
             message_box.setContent("配置保存", "保存成功")
             message_box.exec_()
+            auto_choices = self.config.get_auto_choice_list()
+            if auto_choices:
+                choice_items = [str([item + 1 for item in indexs]) for indexs in auto_choices]
+                choice_items.insert(0, '[]')
+                self.auto_choices_cbbox.clear()
+                self.auto_choices_cbbox.addItems(choice_items)
+                # 重新选择自动剔野项
+                self.change_auto_choice_index(1)
+
 
     def source_choice(self, source_data_dict):
         # {"index": "value"}
@@ -1047,13 +978,21 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def report_excel(self):
         # 选择路径与文件名
-        reportname = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y%m%d%H%M') + '.docx')
+        reportname = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y%m%d_%H%M') + '.docx')
         fileName_choose, filetype = QtWidgets.QFileDialog.getSaveFileName(self,
                                                                           "导出文件",
                                                                           reportname,  # 起始路径
                                                                           "Execl Files (*.docx;)")  # 设置文件扩展名过滤,用双分号间隔
         if fileName_choose == "":
             return
+
+        # 剔野后json数据导出
+        file_dir = os.path.dirname(fileName_choose)
+        filename = time.strftime("%Y%m%d_%H%M%S") + '.json'
+        json_filename = os.path.join(file_dir, filename)
+        self.report_data_json(json_filename)
+
+
         self.update_choice_parms()
         # 准备数据
         create_time = self.create_time_edit.text()
@@ -1257,6 +1196,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
         file_name = 'tmp/' + str(uuid.uuid1()).replace('-', '') + '.png'
         self.split_image(split_name_list, file_name, flag='vertical')
         return file_name
+
+
+    def report_data_json(self, filename):
+        # 返回剔野后的数据，暂定json格式
+        data = self.excel_data
+        with open(filename, 'w') as outfile:
+            json.dump(data, outfile)
+
 
     def get_data_range(self, data):
         value_list = list(data.values())
