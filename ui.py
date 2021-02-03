@@ -447,7 +447,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box = MyMessageBox()
             message_box.setContent("参数缺失", "请完善参数信息")
             message_box.exec_()
-            return 
+            return
             # pass
 
         # 判断账号密码是否正确
@@ -477,7 +477,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
         thread_list = []
         for item in self.excel_data:
-            tmp_thread = CrawlThread(item, username, password, model, item['telemetry_name'], create_time, end_time)
+            tmp_thread = CrawlThread(item, username, password, model, item['telemetry_num'], create_time, end_time)
             tmp_thread._signal.connect(self.crawl_callback)
             thread_list.append(tmp_thread)
 
