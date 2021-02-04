@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBo
     QHeaderView, QSplashScreen
 import pyqtgraph as pg
 from docx import Document
+from docx.shared import Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.oxml.ns import qn
 
@@ -383,31 +384,31 @@ class UiTest(QMainWindow, Ui_MainWindow):
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
 
-        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-            message_box = MyMessageBox()
-            message_box.setContent("参数缺失", "请完善参数信息")
-            message_box.exec_()
-            return
+        # if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("参数缺失", "请完善参数信息")
+        #     message_box.exec_()
+        #     return
 
         # todo: 发布前记得复原
-        # self.config.change_login(self.username_edit.text(), self.password_edit.text())
-        # 判断账号密码是否正确
-        try:
-            is_login = check_login(username, password)
-        except:
-            message_box = MyMessageBox()
-            message_box.setContent("登录失败", "网络连接失败")
-            message_box.exec_()
-            return
-
-        if not is_login:
-            message_box = MyMessageBox()
-            message_box.setContent("读取失败", "账号或密码错误")
-            message_box.exec_()
-            return
-        else:
-            # 保存账户和密码
-            self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # # 判断账号密码是否正确
+        # try:
+        #     is_login = check_login(username, password)
+        # except:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("登录失败", "网络连接失败")
+        #     message_box.exec_()
+        #     return
+        #
+        # if not is_login:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("读取失败", "账号或密码错误")
+        #     message_box.exec_()
+        #     return
+        # else:
+        #     # 保存账户和密码
+        #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
         self.crawl_status = True
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
@@ -1013,7 +1014,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 标题一
         document.styles['Normal'].font.name = u'微软雅黑'
         document.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
-        document.add_heading('1.XXXX卫星' + start_y + '年' + start_m + '月' + '至' + end_m + '月在轨维护报告', 0)
+        head_text = '1.XXXX卫星' + start_y + '年' + start_m + '月' + '至' + end_m + '月在轨维护报告'
+        heading = document.add_heading('', level=0).add_run(head_text)
+        heading.font.name = u'微软雅黑'
+        heading._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
         # 标题一简介
         intr = ''.join(["        ", start_y, '年', start_m, '月', start_d, '日至', end_y, '年', end_m, '月', end_d, '日',
                         'XXXX卫星在轨运行状态正常，卫星运行在XXXX模式，所查询数据均在安全范围以内，', error_text,
@@ -1040,8 +1044,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             row_cells[0].text = str(order_number)
             row_cells[1].text = test_content
             row_cells[2].text = telemetry_num
-            row_cells[3].text = on_normal_range
-            row_cells[4].text = normal_range
+            row_cells[3].text = self.range_cut(on_normal_range)
+            row_cells[4].text = self.range_cut(normal_range)
             row_cells[5].text = result
 
         # 表格二
@@ -1084,8 +1088,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 生成图片
         for img_num in img_nums:
             drafting_list = drafting_number[img_num]
-            image_path = self.create_docx_image([item['data'] for item in drafting_list])
-            document.add_picture(image_path)
+            image_path, h = self.create_docx_image([item['data'] for item in drafting_list])
+            document.add_picture(image_path, width=Inches(6), height=Inches(4*h))
             table1_title = document.add_paragraph("图" + img_num)
             table1_title = table1_title.paragraph_format
             table1_title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
@@ -1195,7 +1199,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 拼接图片
         file_name = 'tmp/' + str(uuid.uuid1()).replace('-', '') + '.png'
         self.split_image(split_name_list, file_name, flag='vertical')
-        return file_name
+        return file_name, len(split_name_list)
 
 
     def report_data_json(self, filename):
@@ -1203,6 +1207,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
         data = self.excel_data
         with open(filename, 'w') as outfile:
             json.dump(data, outfile)
+
+
+    def range_cut(self, data_str):
+        rtn = str([format(float(item), '.2f') for item in json.loads(data_str)]).replace("'", '')
+        return rtn
+
 
 
     def get_data_range(self, data):
