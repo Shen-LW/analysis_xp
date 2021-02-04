@@ -384,31 +384,31 @@ class UiTest(QMainWindow, Ui_MainWindow):
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
 
-        # if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("参数缺失", "请完善参数信息")
-        #     message_box.exec_()
-        #     return
+        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+            message_box = MyMessageBox()
+            message_box.setContent("参数缺失", "请完善参数信息")
+            message_box.exec_()
+            return
 
         # todo: 发布前记得复原
-        self.config.change_login(self.username_edit.text(), self.password_edit.text())
-        # # 判断账号密码是否正确
-        # try:
-        #     is_login = check_login(username, password)
-        # except:
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("登录失败", "网络连接失败")
-        #     message_box.exec_()
-        #     return
-        #
-        # if not is_login:
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("读取失败", "账号或密码错误")
-        #     message_box.exec_()
-        #     return
-        # else:
-        #     # 保存账户和密码
-        #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # 判断账号密码是否正确
+        try:
+            is_login = check_login(username, password)
+        except:
+            message_box = MyMessageBox()
+            message_box.setContent("登录失败", "网络连接失败")
+            message_box.exec_()
+            return
+
+        if not is_login:
+            message_box = MyMessageBox()
+            message_box.setContent("读取失败", "账号或密码错误")
+            message_box.exec_()
+            return
+        else:
+            # 保存账户和密码
+            self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
         self.crawl_status = True
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
