@@ -12,9 +12,9 @@ import xlrd
 from PIL import Image
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QColor, QPixmap
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QDateTime
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, \
-    QHeaderView, QSplashScreen
+    QHeaderView, QSplashScreen, QLineEdit
 import pyqtgraph as pg
 from docx import Document
 from docx.shared import Inches
@@ -80,6 +80,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.label_3.setPixmap(logo)
         self.label_3.setScaledContents(True)
         self.hidden_frame('data_get')
+        self.create_time_edit.setDateTime(QDateTime(2011, 4, 22, 16, 33, 15))
+        self.end_time_edit.setDateTime(QDateTime(2011, 4, 27, 16, 33, 15))
+        self.password_edit.setEchoMode(QLineEdit.Password)
 
         # 加载默认设置
         login_config = self.config.get_login()
@@ -95,6 +98,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.undo_base_btn.setEnabled(False)
         self.undo_base_btn.setStyleSheet(
             'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+
 
     def hidden_frame(self, tab):
         style_1 = 'font: 75 12pt "微软雅黑";background-color: rgb(255, 255, 255);color:#455ab3;border-top-left-radius:15px;border-top-right-radius:15px;'
@@ -348,11 +352,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
         item, is_ok, data = msg
         index = self.excel_data.index(item)
         if is_ok:
+            print(index, '抓取数据长度：', len(data))
             item["data"] = data
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
             self.crawl_status_list[index] = True
         else:
+            print('读取失败，data=', data)
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
             self.crawl_status_list[index] = False
@@ -383,7 +389,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         model = self.model_edit.text()
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
-
         if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
             message_box = MyMessageBox()
             message_box.setContent("参数缺失", "请完善参数信息")
@@ -395,7 +400,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 判断账号密码是否正确
         try:
             is_login = check_login(username, password)
-        except:
+        except Exception as e:
+            print('错误内容', e)
             message_box = MyMessageBox()
             message_box.setContent("登录失败", "网络连接失败")
             message_box.exec_()
@@ -416,16 +422,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 创建线程
         self.crawl_btn.setEnabled(False)
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-        thread_list = []
+        self.thread_list = []
         for item in self.excel_data:
             tmp_thread = CrawlThread(item, username, password, model, item['telemetry_num'], create_time, end_time)
             tmp_thread._signal.connect(self.crawl_callback)
-            thread_list.append(tmp_thread)
+            self.thread_list.append(tmp_thread)
 
         # 开始线程
-        for thread in thread_list:
+        for thread in self.thread_list:
             thread.start()
-
 
     def manual_choice(self, r):
         self.fileinfo_table_2.selectRow(r)
@@ -472,8 +477,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.save_change_btn.setStyleSheet(
             'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
 
-
-
     def select_row(self, r):
         if self.raw_data[r]['data'] == [] or self.raw_data[r]['data'] is None:
             message_box = MyMessageBox()
@@ -519,11 +522,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
                 self.r_pw.removeItem(self.region)
                 self.delete_btn.setEnabled(False)
-                self.delete_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.delete_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
                 self.undo_btn.setEnabled(False)
-                self.undo_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.undo_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
                 self.save_change_btn.setEnabled(False)
-                self.save_change_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.save_change_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
             else:
                 self.r_pw.is_manual_edit = True
                 self.manual_btn.setStyleSheet(
@@ -535,7 +541,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.undo_btn.setEnabled(True)
                 self.undo_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
                 self.save_change_btn.setEnabled(True)
-                self.save_change_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.save_change_btn.setStyleSheet(
+                    'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
         elif key == Qt.Key_R:
             self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
             self.r_pw.is_manual_edit = False
@@ -570,7 +577,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.save_change_btn.setEnabled(True)
                 self.save_change_btn.setStyleSheet(
                     'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
-
 
     def undo_base_point(self):
         self.r_pw.undo_base_line()
@@ -776,7 +782,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
                         else:
                             point_struct["right_status"] = 0
 
-
         correct_index_list.sort()
         print(correct_index_list)
         # 剔除野点
@@ -920,7 +925,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 # 重新选择自动剔野项
                 self.change_auto_choice_index(1)
 
-
     def source_choice(self, source_data_dict):
         # {"index": "value"}
         # 长度小于5，直接返回
@@ -992,7 +996,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         filename = time.strftime("%Y%m%d_%H%M%S") + '.json'
         json_filename = os.path.join(file_dir, filename)
         self.report_data_json(json_filename)
-
 
         self.update_choice_parms()
         # 准备数据
@@ -1089,7 +1092,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         for img_num in img_nums:
             drafting_list = drafting_number[img_num]
             image_path, h = self.create_docx_image([item['data'] for item in drafting_list])
-            document.add_picture(image_path, width=Inches(6), height=Inches(4*h))
+            document.add_picture(image_path, width=Inches(6), height=Inches(1.5 * h))
             table1_title = document.add_paragraph("图" + img_num)
             table1_title = table1_title.paragraph_format
             table1_title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
@@ -1201,19 +1204,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.split_image(split_name_list, file_name, flag='vertical')
         return file_name, len(split_name_list)
 
-
     def report_data_json(self, filename):
         # 返回剔野后的数据，暂定json格式
         data = self.excel_data
         with open(filename, 'w') as outfile:
             json.dump(data, outfile)
 
-
     def range_cut(self, data_str):
-        rtn = str([format(float(item), '.2f') for item in json.loads(data_str)]).replace("'", '')
+        rtn = str([format(float(item), '.4f') for item in json.loads(data_str)]).replace("'", '')
         return rtn
-
-
 
     def get_data_range(self, data):
         value_list = list(data.values())
