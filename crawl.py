@@ -113,7 +113,6 @@ def crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, 
     }
     post_url = 'http://www.ygzx.cast/db/tmdata/tmdata.edq'
     while 1:
-        print(form_data)
         res = requests.post(url=post_url, headers=menu_headers, data=form_data)
         r_json = hjson.loads(res.text)
         count = r_json['count']
