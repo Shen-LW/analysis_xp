@@ -7,6 +7,7 @@ import copy
 import uuid
 import collections
 import json
+import gc
 
 import xlrd
 from PIL import Image
@@ -52,7 +53,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.bing_signal()
         self.extar_control()
-        self.create_dir(['tmp', 'source'])
+        self.create_dir(['tmp', 'source', 'tmp/cache/source_data', 'tmp/cache/runtime_data'])
         self.config = Settings()
         self.init_style()
 
@@ -98,7 +99,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.undo_base_btn.setEnabled(False)
         self.undo_base_btn.setStyleSheet(
             'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-
 
     def hidden_frame(self, tab):
         style_1 = 'font: 75 12pt "微软雅黑";background-color: rgb(255, 255, 255);color:#455ab3;border-top-left-radius:15px;border-top-right-radius:15px;'
@@ -389,32 +389,32 @@ class UiTest(QMainWindow, Ui_MainWindow):
         model = self.model_edit.text()
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
-        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-            message_box = MyMessageBox()
-            message_box.setContent("参数缺失", "请完善参数信息")
-            message_box.exec_()
-            return
+        # if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("参数缺失", "请完善参数信息")
+        #     message_box.exec_()
+        #     return
 
         # todo: 发布前记得复原
-        # self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        self.config.change_login(self.username_edit.text(), self.password_edit.text())
         # 判断账号密码是否正确
-        try:
-            is_login = check_login(username, password)
-        except Exception as e:
-            print('错误内容', e)
-            message_box = MyMessageBox()
-            message_box.setContent("登录失败", "网络连接失败")
-            message_box.exec_()
-            return
-
-        if not is_login:
-            message_box = MyMessageBox()
-            message_box.setContent("读取失败", "账号或密码错误")
-            message_box.exec_()
-            return
-        else:
-            # 保存账户和密码
-            self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # try:
+        #     is_login = check_login(username, password)
+        # except Exception as e:
+        #     print('错误内容', e)
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("登录失败", "网络连接失败")
+        #     message_box.exec_()
+        #     return
+        #
+        # if not is_login:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("读取失败", "账号或密码错误")
+        #     message_box.exec_()
+        #     return
+        # else:
+        #     # 保存账户和密码
+        #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
         self.crawl_status = True
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
@@ -423,8 +423,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.crawl_btn.setEnabled(False)
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
         self.thread_list = []
-        for item in self.excel_data:
-            tmp_thread = CrawlThread(item, username, password, model, item['telemetry_num'], create_time, end_time)
+        for index, item in enumerate(self.excel_data):
+            cache_dir = os.path.join('tmp', 'cache', 'source_data', str(index))
+                                    # datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + str(index))
+            tmp_thread = CrawlThread(item, username, password, model, item['telemetry_num'], create_time, end_time,
+                                     cache_dir)
             tmp_thread._signal.connect(self.crawl_callback)
             self.thread_list.append(tmp_thread)
 
@@ -445,14 +448,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.undo_list = []
         # 传递到手动剔野页面,更新数据
         raw = copy.deepcopy(self.raw_data[r]["data"])
-        l_x, l_y = self.get_choice_data_xy(raw)
-        r_x, r_y = self.get_choice_data_xy()
-        if self.l_plot_data == None:
-            self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
-            self.r_plot_data = self.r_pw.plot(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
-        else:
-            self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
-            self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
+        self.draw_line(raw)
 
         # 手动剔野界面状态重置
         self.region.setSize([0, 0], [0, 0])
@@ -982,6 +978,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
         return False
 
     def report_excel(self):
+        # 检查是否存在数据
+        if not (self.excel_data and self.excel_data[0]['data']):
+            message_box = MyMessageBox()
+            message_box.setContent("数据缺失", "还未获取到任何数据")
+            message_box.exec_()
+            return
+
         # 选择路径与文件名
         reportname = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y%m%d_%H%M') + '.docx')
         fileName_choose, filetype = QtWidgets.QFileDialog.getSaveFileName(self,
@@ -1224,6 +1227,48 @@ class UiTest(QMainWindow, Ui_MainWindow):
         datetime_obj = datetime.datetime.strptime(timestr, "%Y-%m-%d %H:%M:%S.%f")
         ret_stamp = int(time.mktime(datetime_obj.timetuple()) * 1000.0 + datetime_obj.microsecond / 1000.0)
         return ret_stamp / 1000
+
+
+    def read_cache(self, filename, filter_status=False):
+        x = []
+        y = []
+        status = []
+        with open(filename, 'r') as f:
+            if filter_status:
+                for line in f:
+                    tmp_time, tmp_value, tmp_status = line.split('|')
+                    tmp_status = int(tmp_status.replace('\n', ''))
+                    if tmp_status == 2:  # 0:未处理, 2: 被踢除
+                        continue
+                    x.append(self.timestr2timestamp(tmp_time))
+                    y.append(float(tmp_value))
+                    status.append(tmp_status)
+            else:
+                for line in f:
+                    tmp_time, tmp_value, tmp_status = line.split('|')
+                    x.append(self.timestr2timestamp(tmp_time))
+                    y.append(float(tmp_value))
+                    status.append(int(tmp_status.replace('\n', '')))
+        gc.collect()
+        return x, y, status
+
+    # 分段绘制曲线
+    def draw_line(self, raw_data):
+        data = raw_data
+        for index, item in enumerate(data):
+            if index % 100 == 0:
+                print(index, '/', len(data))
+            x, y, status = self.read_cache(item['filename'], True)
+
+            self.l_plot_data = self.l_pw.plot(x=x, y=y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
+            self.r_plot_data = self.r_pw.plot(x=x, y=y, pen=pg.mkPen('r', width=1))  # 在绘图控件中绘制图形
+
+            # if self.l_plot_data is None:
+            #     self.l_plot_data = self.l_pw.plot(x=x, y=y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
+            #     self.r_plot_data = self.r_pw.plot(x=x, y=y, pen=pg.mkPen('r', width=1))  # 在绘图控件中绘制图形
+            # else:
+            #     self.l_plot_data.setData(x=x, y=y, pen=pg.mkPen('g', width=1))
+            #     self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
 
 class TimeAxisItem(pg.AxisItem):

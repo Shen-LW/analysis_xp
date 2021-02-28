@@ -543,7 +543,7 @@ margin: 8px;</string>
 font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
        <property name="text">
-        <string>数据导出</string>
+        <string>生成报告</string>
        </property>
       </widget>
       <widget class="QPushButton" name="auto_choice_btn">

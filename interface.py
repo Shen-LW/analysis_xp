@@ -400,7 +400,7 @@ class Ui_MainWindow(object):
         item.setText(_translate("MainWindow", "参数3"))
         item = self.fileinfo_table.horizontalHeaderItem(10)
         item.setText(_translate("MainWindow", "参数4"))
-        self.report_docx_btn.setText(_translate("MainWindow", "数据导出"))
+        self.report_docx_btn.setText(_translate("MainWindow", "生成报告"))
         self.auto_choice_btn.setText(_translate("MainWindow", "自动剔野"))
         self.select_all_btn.setText(_translate("MainWindow", "全选"))
         self.label_9.setText(_translate("MainWindow", "选择性剔野"))
