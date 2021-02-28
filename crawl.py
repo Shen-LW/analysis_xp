@@ -3,11 +3,13 @@
 """
 import requests
 import json
+import os
 import time
 import random
 import datetime
 import collections
 import hjson
+import gc
 
 
 def get_cookie(username, password):
@@ -25,6 +27,8 @@ def get_cookie(username, password):
         cookies = requests.utils.dict_from_cookiejar(r.cookies)
         cookie = "JSESSIONID=" + cookies['JSESSIONID']
         return cookie
+    s = requests.session()
+    s.keep_alive = False
     return None
 
 
@@ -47,6 +51,8 @@ def crawl_menu(cookie, date_stamp):
     # print('写入ment.json成功')
     modellist = []
     items = json.loads(r.text.replace("nodes", '"nodes"'))
+    s = requests.session()
+    s.keep_alive = False
     return items['nodes']
 
 
@@ -75,6 +81,8 @@ def find_grant(date_stamp, cookie, sat_id, telemetry_name):
     # print('写入search.json成功')
     numlist = []
     items = r.json()
+    s = requests.session()
+    s.keep_alive = False
     return items['records']
 
 
@@ -91,7 +99,7 @@ def crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, 
     }
 
     data = []
-    limit = 1000
+    limit = 5000
     tmParamStr = str(start_time) + '|' + str(end_time) + "|" + str(mid) + "&" + str(telemetry_num) + '&' + str(
         telemetry_id) + '&0|'
     form_data = {
@@ -111,6 +119,8 @@ def crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, 
         r_json = hjson.loads(res.text)
         count = r_json['count']
         items = r_json['items']
+        s = requests.session()
+        s.keep_alive = False
         data = data + items
         if count == 0 or count < limit:
             break
@@ -138,7 +148,6 @@ def check_login(username, password):
         return True
 
 
-
 def crawl(username, password, model_name, telemetry_name, start_time, end_time):
     start_time = trans_time(start_time)
     end_time = trans_time(end_time)
@@ -156,50 +165,67 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
             sys_resource_id = item["sys_resource_id"]
             break
     else:
-        return False, []
+        return False, "未匹配到型号ID"
     # 解析遥测代号
     telemetry_id = None
     telemetry_num = None
     numlist = find_grant(date_stamp, cookie, sys_resource_id, telemetry_name)
     for item in numlist:
-        if item["name"] == telemetry_name:
+        if item["code"] == telemetry_name:
             telemetry_id = item["id"]
             telemetry_num = item["num"]
             break
     else:
-        return False, []
+        return False, "未解析到遥测代号"
     # 实际爬取数据
     data = crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
     items = parse_data(data)
     return True, items
 
 
-
-def create_test_timedata(start_time_str, end_time_str, min_value, max_value):
+def create_test_timedata(cache_dir, start_time_str, end_time_str, min_value, max_value):
     start_time = datetime.datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S.%f")
     end_time = datetime.datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S.%f")
-    item = []
-    # print((end_time - start_time).total_seconds())
-    for i in range(int((end_time - start_time).total_seconds())):
-        tmp = start_time + datetime.timedelta(seconds=i)
-        item.append({
-            "T0": str(tmp),
-            "V02317575": random.randint(int(min_value * 100), int(max_value * 100)) / 100
-        })
+    total = (end_time - start_time).total_seconds()
+    begin = datetime.datetime.now()
+    data = []
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+    for i in range(0, int(total), 5000):
+        item = []
+        gc.collect()
+        for j in range(i, i + 5000):
+            # print(j, '/', total)
+            tmp = start_time + datetime.timedelta(seconds=j)
+            item.append({
+                "T0": str(tmp),
+                "V02317575": random.randint(int(min_value * 100), int(max_value * 100)) / 100,
+            })
+        item[random.randint(1, 4999)]["V02317575"] = random.random()
+        item[random.randint(1, 4999)]["V02317575"] = random.random()
+        filename = os.path.join(cache_dir, str(i) + '.txt')
+        file_item = {
+            'filename': filename,
+            'start_time': item[0]['T0'],
+            'end_time': item[-1]['T0']
+        }
+        data.append(file_item)
+        item = parse_data(item)
+        write_block(item, filename)
+    end = datetime.datetime.now()
+    print('时间：', end - begin)
+    return True, data
 
-    return item
+
+def write_block(block_data, filename):
+    with open(filename, "w") as file:
+        for time, value in block_data.items():
+            line = str(time) + '|' + str(value) + '| 0' + '\n'
+            file.write(line)
 
 
-
-
-
-
-
-
-
-
-
-def crawl_test(model_name, telemetry_name, start_time, end_time):
+def crawl_test(model_name, telemetry_name, start_time, end_time, cache_dir):
+    start_time = trans_time(start_time)
     # return False, "用户名或密码错误"
     # time.sleep(random.randint(1, 10))
     # 生成随机数据
@@ -4211,20 +4237,18 @@ def crawl_test(model_name, telemetry_name, start_time, end_time):
     }
     '''
 
-
     # items = hjson.loads(data)['items']
 
-    items_1 = create_test_timedata("2020-10-11 18:25:27.454", "2020-10-11 19:25:27.454", -0.15, 0.1)
+    isok, data = create_test_timedata(cache_dir, "2020-01-01 08:25:27.454", "2020-03-01 23:25:27.454", -0.15, 0.1)
 
-    items_2 = create_test_timedata("2020-10-11 19:45:27.454", "2020-10-11 21:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2020-10-11 19:45:27.454", "2020-10-11 21:25:27.454", -0.15, 0.1)
 
-    items = items_1 + items_2
-
-    items[300]["V02317575"] = 0.5
-    items[3000]["V02317575"] = -0.5
-
-    items[6000]["V02317575"] = 0.5
-
+    # items = items_1 + items_2
+    # items =items_1
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    #
+    # items[6000]["V02317575"] = 0.5
 
     # 增加随机噪声
     # for i in range(500):
@@ -4236,12 +4260,14 @@ def crawl_test(model_name, telemetry_name, start_time, end_time):
     #     index = random.randint(0, 999)
     #     items[index]['V02317575'] = random.randint(-30, 30) / 100
 
-    items = parse_data(items)
-    return True, items
+    # items = parse_data(items)
+    return True, data
+
 
 def load_dirty_json(dirty_json):
     import re
-    regex_replace = [(r"([ \{,:\[])(u)?'([^']+)'", r'\1"\3"'), (r" False([, \}\]])", r' false\1'), (r" True([, \}\]])", r' true\1')]
+    regex_replace = [(r"([ \{,:\[])(u)?'([^']+)'", r'\1"\3"'), (r" False([, \}\]])", r' false\1'),
+                     (r" True([, \}\]])", r' true\1')]
     for r, s in regex_replace:
         dirty_json = re.sub(r, s, dirty_json)
     clean_json = json.loads(dirty_json)
@@ -4267,10 +4293,11 @@ def parse_data(items):
 
 
 def trans_time(time_str):
-    # "20201014093500000"
+    # "20201014039500000"
     l = time_str.split(" ")
     s = l[1].split(":")
-    d = l[0].replace('/', '').replace("-", '')
+    d = l[0].replace('/', '-')
+    d = ''.join([i if len(i) > 1 else '0' + i for i in d.split('-')])
     h = s[0] if len(s[0]) == 2 else '0' + s[0]
     m = s[1]
     s = '00000'

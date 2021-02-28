@@ -6,18 +6,19 @@ import time
 import copy
 import uuid
 import collections
-from threading import Thread, Lock
+import json
+import gc
 
 import xlrd
 from PIL import Image
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtGui import QColor, QPixmap
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QDateTime
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QCheckBox, QPushButton, QApplication, \
-    QHeaderView, QAbstractItemView, QSplashScreen
+    QHeaderView, QSplashScreen, QLineEdit
 import pyqtgraph as pg
-from pyqtgraph.exporters import ImageExporter
 from docx import Document
+from docx.shared import Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.oxml.ns import qn
 
@@ -52,7 +53,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.bing_signal()
         self.extar_control()
-        self.create_dir(['tmp', 'source'])
+        self.create_dir(['tmp', 'source', 'tmp/cache/source_data', 'tmp/cache/runtime_data'])
         self.config = Settings()
         self.init_style()
 
@@ -76,12 +77,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.choice_btn.clicked.connect(lambda: self.select_tab('choice'))
 
     def init_style(self):
-        # self.setWindowFlags(Qt.FramelessWindowHint)
-        # self.fileinfo_table_2.setSelectionBehavior(QAbstractItemView.SelectRows);
         logo = QtGui.QPixmap('source/logo.png')
         self.label_3.setPixmap(logo)
         self.label_3.setScaledContents(True)
         self.hidden_frame('data_get')
+        self.create_time_edit.setDateTime(QDateTime(2011, 4, 22, 16, 33, 15))
+        self.end_time_edit.setDateTime(QDateTime(2011, 4, 27, 16, 33, 15))
+        self.password_edit.setEchoMode(QLineEdit.Password)
 
         # 加载默认设置
         login_config = self.config.get_login()
@@ -175,8 +177,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.select_indexs = []  # 自动剔野选择行数组
         self.undo_list = []  # undo列表
         self.crawl_status = False
-        # self.l_plot_data = None  # 左侧绘图数据
-        # self.r_plot_data = None  # 右侧绘图数据
         if self.l_plot_data:
             self.l_plot_data.setData(x=[], y=[], pen=pg.mkPen('g', width=1))
         if self.r_plot_data:
@@ -188,7 +188,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         l_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
         self.l_widget.setLayout(l_plot_layout)  # 设置K线图部件的布局层
         l_date_axis = TimeAxisItem(orientation='bottom')
-        # self.l_pw = pg.PlotWidget(self, axisItems={'bottom': l_date_axis})  # 创建一个绘图控件
         self.l_pw = MyPlotWidget(self, axisItems={'bottom': l_date_axis})  # 创建一个绘图控件
         self.l_pw.showGrid(x=True, y=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
@@ -198,13 +197,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         r_plot_layout = QtWidgets.QGridLayout()  # 实例化一个网格布局层
         self.r_widget.setLayout(r_plot_layout)  # 设置K线图部件的布局层
         r_date_axis = TimeAxisItem(orientation='bottom')
-        # self.r_pw = pg.PlotWidget(self, axisItems={'bottom': r_date_axis})  # 创建一个绘图控件
         self.r_pw = MyPlotWidget(self, axisItems={'bottom': r_date_axis})  # 创建一个绘图控件
         self.r_pw.showGrid(x=True, y=True)
-        # self.region = pg.LinearRegionItem()
-        # self.region = pg.RectROI([0, 0], [0, 0], pen=pg.mkPen('g', width=1))
-        # # self.region.setRegion([0, 0])
-        # self.r_pw.addItem(self.region, ignoreBounds=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
         self.r_widget.layout().addWidget(self.r_pw)
         self.r_pw.region = self.region
@@ -325,45 +319,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         updateBtn.clicked.connect(lambda: self.manual_choice(id))
         return updateBtn
 
-        # # 列表内添加按钮
-        # def buttonForRow(self, id):
-        #     widget = QWidget()
-        #     # 修改
-        #     updateBtn = QPushButton('修改')
-        #     updateBtn.setStyleSheet(''' text-align : center;
-        #                                           background-color : NavajoWhite;
-        #                                           height : 30px;
-        #                                           border-style: outset;
-        #                                           font : 13px  ''')
-        #
-        #     updateBtn.clicked.connect(lambda: self.updateTable(id))
-        #
-        #     # 查看
-        #     viewBtn = QPushButton('查看')
-        #     viewBtn.setStyleSheet(''' text-align : center;
-        #                                   background-color : DarkSeaGreen;
-        #                                   height : 30px;
-        #                                   border-style: outset;
-        #                                   font : 13px; ''')
-        #
-        #     viewBtn.clicked.connect(lambda: self.viewTable(id))
-        #
-        #     # 删除
-        #     deleteBtn = QPushButton('删除')
-        #     deleteBtn.setStyleSheet(''' text-align : center;
-        #                                     background-color : LightCoral;
-        #                                     height : 30px;
-        #                                     border-style: outset;
-        #                                     font : 13px; ''')
-        #
-        #     hLayout = QHBoxLayout()
-        #     hLayout.addWidget(updateBtn)
-        #     hLayout.addWidget(viewBtn)
-        #     hLayout.addWidget(deleteBtn)
-        #     hLayout.setContentsMargins(5, 2, 5, 2)
-        #     widget.setLayout(hLayout)
-        #     return widget
-
     def update_talbe2(self):
         count = self.fileinfo_table_2.rowCount()
         for i in range(count):
@@ -392,32 +347,18 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setItem(r, 11, QTableWidgetItem(str(item['params_four'])))
             updateBtn = self.buttonForRow(r)
             self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
-            # self.fileinfo_table_2.setItem(r, 9, QTableWidgetItem(str(item['params_four'])))
-
-    def crawl_thread(self, item, username, password, model, telemetry_name, create_time, end_time):
-        index = self.excel_data.index(item)
-        time.sleep(0.3)
-        # 测试，使用相同数据
-        is_ok, data = crawl_test(model, "", create_time, end_time)
-        # is_ok, data = crawl(username, password, model, item['telemetry_name'], create_time, end_time)
-        if is_ok:
-            item["data"] = data
-            self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
-            self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
-        else:
-            self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
-            self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
-        QApplication.processEvents()
 
     def crawl_callback(self, msg):
         item, is_ok, data = msg
         index = self.excel_data.index(item)
         if is_ok:
+            print(index, '抓取数据长度：', len(data))
             item["data"] = data
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
             self.crawl_status_list[index] = True
         else:
+            print('读取失败，data=', data)
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
             self.crawl_status_list[index] = False
@@ -442,23 +383,31 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
 
-        self.crawl_status = True
         # 检查各个控件参数
         username = self.username_edit.text()
         password = self.password_edit.text()
         model = self.model_edit.text()
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
+        # if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("参数缺失", "请完善参数信息")
+        #     message_box.exec_()
+        #     return
 
-        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-            # message_box = MyMessageBox()
-            # message_box.setContent("参数缺失", "请完善参数信息")
-            # message_box.exec_()
-            pass
-
-        # 判断账号密码是否正确
         # todo: 发布前记得复原
-        # if not check_login(username, password):
+        self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # 判断账号密码是否正确
+        # try:
+        #     is_login = check_login(username, password)
+        # except Exception as e:
+        #     print('错误内容', e)
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("登录失败", "网络连接失败")
+        #     message_box.exec_()
+        #     return
+        #
+        # if not is_login:
         #     message_box = MyMessageBox()
         #     message_box.setContent("读取失败", "账号或密码错误")
         #     message_box.exec_()
@@ -467,36 +416,24 @@ class UiTest(QMainWindow, Ui_MainWindow):
         #     # 保存账户和密码
         #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
+        self.crawl_status = True
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
         # 多线程爬取
         # 创建线程
         self.crawl_btn.setEnabled(False)
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-        thread_list = []
-        for item in self.excel_data:
-            tmp_thread = CrawlThread(item, username, password, model, item['telemetry_name'], create_time, end_time)
+        self.thread_list = []
+        for index, item in enumerate(self.excel_data):
+            cache_dir = os.path.join('tmp', 'cache', 'source_data', str(index))
+                                    # datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + str(index))
+            tmp_thread = CrawlThread(item, username, password, model, item['telemetry_num'], create_time, end_time,
+                                     cache_dir)
             tmp_thread._signal.connect(self.crawl_callback)
-            thread_list.append(tmp_thread)
+            self.thread_list.append(tmp_thread)
 
         # 开始线程
-        for thread in thread_list:
+        for thread in self.thread_list:
             thread.start()
-
-        # while 1:
-        #     time.sleep(1)
-        #     if None not in self.crawl_status_list:
-        #         break
-
-        # # 创建新线程
-        # for item in self.excel_data:
-        #     threads.append(Thread(target=self.crawl_thread, args=(item, username, password, model, item['telemetry_name'], create_time, end_time)))
-        # # 开启新线程
-        # for thread in threads:
-        #     thread.start()
-        #
-        # # 等待所有线程完成
-        # for thread in threads:
-        #     thread.join()
 
     def manual_choice(self, r):
         self.fileinfo_table_2.selectRow(r)
@@ -511,14 +448,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.undo_list = []
         # 传递到手动剔野页面,更新数据
         raw = copy.deepcopy(self.raw_data[r]["data"])
-        l_x, l_y = self.get_choice_data_xy(raw)
-        r_x, r_y = self.get_choice_data_xy()
-        if self.l_plot_data == None:
-            self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
-            self.r_plot_data = self.r_pw.plot(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
-        else:
-            self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
-            self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
+        self.draw_line(raw)
 
         # 手动剔野界面状态重置
         self.region.setSize([0, 0], [0, 0])
@@ -542,8 +472,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.save_change_btn.setEnabled(False)
         self.save_change_btn.setStyleSheet(
             'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-
-
 
     def select_row(self, r):
         if self.raw_data[r]['data'] == [] or self.raw_data[r]['data'] is None:
@@ -590,11 +518,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
                 self.r_pw.removeItem(self.region)
                 self.delete_btn.setEnabled(False)
-                self.delete_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.delete_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
                 self.undo_btn.setEnabled(False)
-                self.undo_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.undo_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
                 self.save_change_btn.setEnabled(False)
-                self.save_change_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.save_change_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
             else:
                 self.r_pw.is_manual_edit = True
                 self.manual_btn.setStyleSheet(
@@ -606,7 +537,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.undo_btn.setEnabled(True)
                 self.undo_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
                 self.save_change_btn.setEnabled(True)
-                self.save_change_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.save_change_btn.setStyleSheet(
+                    'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
         elif key == Qt.Key_R:
             self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
             self.r_pw.is_manual_edit = False
@@ -641,7 +573,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.save_change_btn.setEnabled(True)
                 self.save_change_btn.setStyleSheet(
                     'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
-
 
     def undo_base_point(self):
         self.r_pw.undo_base_line()
@@ -847,7 +778,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
                         else:
                             point_struct["right_status"] = 0
 
-
         correct_index_list.sort()
         print(correct_index_list)
         # 剔除野点
@@ -933,11 +863,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if self.check_choice('threshold', value['params_four']):
                 self.threshold_choice(index, value)
 
-        # 变化率剔野和手动剔野合并
-        # # 变化率剔野
-        # for index, value in tmp_data.items():
-        #     if self.check_choice('rate', value['params_four']):
-        #         self.rate_choice(index, value)
+        # 变化率剔野和手动剔野已合并
 
         # 修改剔野状态
         for index, value in tmp_data.items():
@@ -950,8 +876,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         message_box.exec_()
 
     # 选择自动剔野保存项
-    def change_auto_choice_index(self):
-        curr_index = self.auto_choices_cbbox.currentIndex()
+    def change_auto_choice_index(self, curr_index=None):
+        if not curr_index:
+            curr_index = self.auto_choices_cbbox.currentIndex()
         number = len(self.raw_data)
         # 清除原有选择
         for i in range(number):
@@ -985,6 +912,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box = MyMessageBox()
             message_box.setContent("配置保存", "保存成功")
             message_box.exec_()
+            auto_choices = self.config.get_auto_choice_list()
+            if auto_choices:
+                choice_items = [str([item + 1 for item in indexs]) for indexs in auto_choices]
+                choice_items.insert(0, '[]')
+                self.auto_choices_cbbox.clear()
+                self.auto_choices_cbbox.addItems(choice_items)
+                # 重新选择自动剔野项
+                self.change_auto_choice_index(1)
 
     def source_choice(self, source_data_dict):
         # {"index": "value"}
@@ -1043,14 +978,28 @@ class UiTest(QMainWindow, Ui_MainWindow):
         return False
 
     def report_excel(self):
+        # 检查是否存在数据
+        if not (self.excel_data and self.excel_data[0]['data']):
+            message_box = MyMessageBox()
+            message_box.setContent("数据缺失", "还未获取到任何数据")
+            message_box.exec_()
+            return
+
         # 选择路径与文件名
-        reportname = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y%m%d%H%M') + '.docx')
+        reportname = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y%m%d_%H%M') + '.docx')
         fileName_choose, filetype = QtWidgets.QFileDialog.getSaveFileName(self,
                                                                           "导出文件",
                                                                           reportname,  # 起始路径
                                                                           "Execl Files (*.docx;)")  # 设置文件扩展名过滤,用双分号间隔
         if fileName_choose == "":
             return
+
+        # 剔野后json数据导出
+        file_dir = os.path.dirname(fileName_choose)
+        filename = time.strftime("%Y%m%d_%H%M%S") + '.json'
+        json_filename = os.path.join(file_dir, filename)
+        self.report_data_json(json_filename)
+
         self.update_choice_parms()
         # 准备数据
         create_time = self.create_time_edit.text()
@@ -1071,7 +1020,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 标题一
         document.styles['Normal'].font.name = u'微软雅黑'
         document.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
-        document.add_heading('1.XXXX卫星' + start_y + '年' + start_m + '月' + '至' + end_m + '月在轨维护报告', 0)
+        head_text = '1.XXXX卫星' + start_y + '年' + start_m + '月' + '至' + end_m + '月在轨维护报告'
+        heading = document.add_heading('', level=0).add_run(head_text)
+        heading.font.name = u'微软雅黑'
+        heading._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
         # 标题一简介
         intr = ''.join(["        ", start_y, '年', start_m, '月', start_d, '日至', end_y, '年', end_m, '月', end_d, '日',
                         'XXXX卫星在轨运行状态正常，卫星运行在XXXX模式，所查询数据均在安全范围以内，', error_text,
@@ -1098,8 +1050,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             row_cells[0].text = str(order_number)
             row_cells[1].text = test_content
             row_cells[2].text = telemetry_num
-            row_cells[3].text = on_normal_range
-            row_cells[4].text = normal_range
+            row_cells[3].text = self.range_cut(on_normal_range)
+            row_cells[4].text = self.range_cut(normal_range)
             row_cells[5].text = result
 
         # 表格二
@@ -1142,8 +1094,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 生成图片
         for img_num in img_nums:
             drafting_list = drafting_number[img_num]
-            image_path = self.create_docx_image([item['data'] for item in drafting_list])
-            document.add_picture(image_path)
+            image_path, h = self.create_docx_image([item['data'] for item in drafting_list])
+            document.add_picture(image_path, width=Inches(6), height=Inches(1.5 * h))
             table1_title = document.add_paragraph("图" + img_num)
             table1_title = table1_title.paragraph_format
             table1_title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
@@ -1161,12 +1113,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def table_update(self):
         # 在剔野中再统一修改剔野参数
         pass
-        # row_select = self.fileinfo_table_2.selectedItems()
-        # if len(row_select) == 0:
-        #     return
-        # id = row_select[0].text()
-        # # new_name = row_select[1].text()
-        # print("id: {}".format(id))
 
     def create_table1_data(self):
         data = []
@@ -1259,7 +1205,17 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 拼接图片
         file_name = 'tmp/' + str(uuid.uuid1()).replace('-', '') + '.png'
         self.split_image(split_name_list, file_name, flag='vertical')
-        return file_name
+        return file_name, len(split_name_list)
+
+    def report_data_json(self, filename):
+        # 返回剔野后的数据，暂定json格式
+        data = self.excel_data
+        with open(filename, 'w') as outfile:
+            json.dump(data, outfile)
+
+    def range_cut(self, data_str):
+        rtn = str([format(float(item), '.4f') for item in json.loads(data_str)]).replace("'", '')
+        return rtn
 
     def get_data_range(self, data):
         value_list = list(data.values())
@@ -1271,6 +1227,48 @@ class UiTest(QMainWindow, Ui_MainWindow):
         datetime_obj = datetime.datetime.strptime(timestr, "%Y-%m-%d %H:%M:%S.%f")
         ret_stamp = int(time.mktime(datetime_obj.timetuple()) * 1000.0 + datetime_obj.microsecond / 1000.0)
         return ret_stamp / 1000
+
+
+    def read_cache(self, filename, filter_status=False):
+        x = []
+        y = []
+        status = []
+        with open(filename, 'r') as f:
+            if filter_status:
+                for line in f:
+                    tmp_time, tmp_value, tmp_status = line.split('|')
+                    tmp_status = int(tmp_status.replace('\n', ''))
+                    if tmp_status == 2:  # 0:未处理, 2: 被踢除
+                        continue
+                    x.append(self.timestr2timestamp(tmp_time))
+                    y.append(float(tmp_value))
+                    status.append(tmp_status)
+            else:
+                for line in f:
+                    tmp_time, tmp_value, tmp_status = line.split('|')
+                    x.append(self.timestr2timestamp(tmp_time))
+                    y.append(float(tmp_value))
+                    status.append(int(tmp_status.replace('\n', '')))
+        gc.collect()
+        return x, y, status
+
+    # 分段绘制曲线
+    def draw_line(self, raw_data):
+        data = raw_data
+        for index, item in enumerate(data):
+            if index % 100 == 0:
+                print(index, '/', len(data))
+            x, y, status = self.read_cache(item['filename'], True)
+
+            self.l_plot_data = self.l_pw.plot(x=x, y=y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
+            self.r_plot_data = self.r_pw.plot(x=x, y=y, pen=pg.mkPen('r', width=1))  # 在绘图控件中绘制图形
+
+            # if self.l_plot_data is None:
+            #     self.l_plot_data = self.l_pw.plot(x=x, y=y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
+            #     self.r_plot_data = self.r_pw.plot(x=x, y=y, pen=pg.mkPen('r', width=1))  # 在绘图控件中绘制图形
+            # else:
+            #     self.l_plot_data.setData(x=x, y=y, pen=pg.mkPen('g', width=1))
+            #     self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
 
 class TimeAxisItem(pg.AxisItem):
