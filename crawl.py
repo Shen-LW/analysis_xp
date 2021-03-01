@@ -191,18 +191,18 @@ def create_test_timedata(cache_dir, start_time_str, end_time_str, min_value, max
     data = []
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
-    for i in range(0, int(total), 5000):
+    for i in range(0, int(total), 10000):
         item = []
         gc.collect()
-        for j in range(i, i + 5000):
+        for j in range(i, i + 10000):
             # print(j, '/', total)
             tmp = start_time + datetime.timedelta(seconds=j)
             item.append({
                 "T0": str(tmp),
                 "V02317575": random.randint(int(min_value * 100), int(max_value * 100)) / 100,
             })
-        item[random.randint(1, 4999)]["V02317575"] = random.random()
-        item[random.randint(1, 4999)]["V02317575"] = random.random()
+        item[random.randint(1, 9999)]["V02317575"] = random.random()
+        item[random.randint(1, 9999)]["V02317575"] = random.random()
         filename = os.path.join(cache_dir, str(i) + '.txt')
         file_item = {
             'filename': filename,
@@ -4239,7 +4239,7 @@ def crawl_test(model_name, telemetry_name, start_time, end_time, cache_dir):
 
     # items = hjson.loads(data)['items']
 
-    isok, data = create_test_timedata(cache_dir, "2020-01-01 08:25:27.454", "2020-03-01 23:25:27.454", -0.15, 0.1)
+    isok, data = create_test_timedata(cache_dir, "2020-01-01 08:25:27.454", "2020-02-01 23:25:27.454", -0.15, 0.1)
 
     # items_2 = create_test_timedata("2020-10-11 19:45:27.454", "2020-10-11 21:25:27.454", -0.15, 0.1)
 
