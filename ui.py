@@ -28,6 +28,7 @@ from MyPlotWidget import MyPlotWidget
 from crawlThread import CrawlThread
 from settings import Settings
 from draw_win import DrawWindow
+from satelliteData import SatelliteData
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -52,7 +53,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.bing_signal()
         self.extar_control()
-        self.create_dir(['tmp', 'source'])
+        self.create_dir(['tmp/image', 'tmp/data', 'source'])
         self.config = Settings()
         self.init_style()
 
@@ -258,7 +259,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             params_two = sheet_1.cell(i, 7).value
             params_three = sheet_1.cell(i, 8).value
             params_four = sheet_1.cell(i, 9).value
-            item = {
+            dataHead = {
                 "status": '未读取',
                 'telemetry_name': telemetry_name,
                 'telemetry_num': telemetry_num,
@@ -270,9 +271,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 'params_two': params_two,
                 'params_three': params_three,
                 "params_four": params_four,
-                "data": []
             }
-            self.excel_data.append(item)
+            create_time = self.create_time_edit.text()
+            end_time = self.end_time_edit.text()
+            file_path = 'tmp/data/' + telemetry_num + '_' + self.trans_time(create_time)[:-5] + '-' + self.trans_time(end_time)[:-5] + '.tmp'
+            satellite_data = SatelliteData(dataHead, file_path)
+            self.excel_data.append(satellite_data)
         self.crawl_status_list = [None for i in range(len(self.excel_data))]
         self.update_talbe1()
         self.crawl_btn.setEnabled(True)
@@ -349,16 +353,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
 
     def crawl_callback(self, msg):
-        item, is_ok, data = msg
+        item, is_ok, satellite_data = msg
         index = self.excel_data.index(item)
         if is_ok:
-            print(index, '抓取数据长度：', len(data))
-            item["data"] = data
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
             self.crawl_status_list[index] = True
         else:
-            print('读取失败，data=', data)
+            print('读取失败，data=', satellite_data)
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
             self.crawl_status_list[index] = False
@@ -423,8 +425,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.crawl_btn.setEnabled(False)
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
         self.thread_list = []
-        for item in self.excel_data:
-            tmp_thread = CrawlThread(item, username, password, model, item['telemetry_num'], create_time, end_time)
+        for satellite_data in self.excel_data:
+            tmp_thread = CrawlThread(satellite_data, username, password, model, create_time, end_time)
             tmp_thread._signal.connect(self.crawl_callback)
             self.thread_list.append(tmp_thread)
 
