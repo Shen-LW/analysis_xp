@@ -3,13 +3,11 @@
 """
 import requests
 import json
-import os
 import time
 import random
 import datetime
 import collections
 import hjson
-import gc
 
 
 def get_cookie(username, password):
@@ -183,48 +181,22 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
     return True, items
 
 
-def create_test_timedata(cache_dir, start_time_str, end_time_str, min_value, max_value):
+def create_test_timedata(start_time_str, end_time_str, min_value, max_value):
     start_time = datetime.datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S.%f")
     end_time = datetime.datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S.%f")
-    total = (end_time - start_time).total_seconds()
-    begin = datetime.datetime.now()
-    data = []
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir)
-    for i in range(0, int(total), 10000):
-        item = []
-        gc.collect()
-        for j in range(i, i + 10000):
-            # print(j, '/', total)
-            tmp = start_time + datetime.timedelta(seconds=j)
-            item.append({
-                "T0": str(tmp),
-                "V02317575": random.randint(int(min_value * 100), int(max_value * 100)) / 100,
-            })
-        item[random.randint(1, 9999)]["V02317575"] = random.random()
-        item[random.randint(1, 9999)]["V02317575"] = random.random()
-        filename = os.path.join(cache_dir, str(i) + '.txt')
-        file_item = {
-            'filename': filename,
-            'start_time': item[0]['T0'],
-            'end_time': item[-1]['T0']
-        }
-        data.append(file_item)
-        item = parse_data(item)
-        write_block(item, filename)
-    end = datetime.datetime.now()
-    print('时间：', end - begin)
-    return True, data
+    item = []
+    # print((end_time - start_time).total_seconds())
+    for i in range(int((end_time - start_time).total_seconds())):
+        tmp = start_time + datetime.timedelta(seconds=i)
+        item.append({
+            "T0": str(tmp),
+            "V02317575": random.randint(int(min_value * 100), int(max_value * 100)) / 100
+        })
+
+    return item
 
 
-def write_block(block_data, filename):
-    with open(filename, "w") as file:
-        for time, value in block_data.items():
-            line = str(time) + '|' + str(value) + '| 0' + '\n'
-            file.write(line)
-
-
-def crawl_test(model_name, telemetry_name, start_time, end_time, cache_dir):
+def crawl_test(model_name, telemetry_name, start_time, end_time):
     start_time = trans_time(start_time)
     # return False, "用户名或密码错误"
     # time.sleep(random.randint(1, 10))
@@ -4239,16 +4211,16 @@ def crawl_test(model_name, telemetry_name, start_time, end_time, cache_dir):
 
     # items = hjson.loads(data)['items']
 
-    isok, data = create_test_timedata(cache_dir, "2020-01-01 08:25:27.454", "2020-02-01 23:25:27.454", -0.15, 0.1)
+    items_1 = create_test_timedata("2020-10-11 18:25:27.454", "2020-10-11 19:25:27.454", -0.15, 0.1)
 
-    # items_2 = create_test_timedata("2020-10-11 19:45:27.454", "2020-10-11 21:25:27.454", -0.15, 0.1)
+    items_2 = create_test_timedata("2020-10-11 19:45:27.454", "2020-10-11 21:25:27.454", -0.15, 0.1)
 
-    # items = items_1 + items_2
-    # items =items_1
-    # items[300]["V02317575"] = 0.5
-    # items[3000]["V02317575"] = -0.5
-    #
-    # items[6000]["V02317575"] = 0.5
+    items = items_1 + items_2
+
+    items[300]["V02317575"] = 0.5
+    items[3000]["V02317575"] = -0.5
+
+    items[6000]["V02317575"] = 0.5
 
     # 增加随机噪声
     # for i in range(500):
@@ -4260,8 +4232,8 @@ def crawl_test(model_name, telemetry_name, start_time, end_time, cache_dir):
     #     index = random.randint(0, 999)
     #     items[index]['V02317575'] = random.randint(-30, 30) / 100
 
-    # items = parse_data(items)
-    return True, data
+    items = parse_data(items)
+    return True, items
 
 
 def load_dirty_json(dirty_json):

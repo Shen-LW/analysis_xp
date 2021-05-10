@@ -7,7 +7,6 @@ import copy
 import uuid
 import collections
 import json
-import gc
 
 import xlrd
 from PIL import Image
@@ -25,7 +24,6 @@ from docx.oxml.ns import qn
 from interface import Ui_MainWindow
 from crawl import crawl, check_login, crawl_test
 from myMessage import MyMessageBox
-from myProgress import MyProgress
 from MyPlotWidget import MyPlotWidget
 from crawlThread import CrawlThread
 from settings import Settings
@@ -54,10 +52,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.bing_signal()
         self.extar_control()
-        self.create_dir(['tmp', 'source', 'tmp/cache/source_data', 'tmp/cache/runtime_data'])
+        self.create_dir(['tmp', 'source'])
         self.config = Settings()
         self.init_style()
-        self.progress = MyProgress()
 
     def bing_signal(self):
         self.upload_excel_btn.clicked.connect(self.choose_excel)
@@ -352,7 +349,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
 
     def crawl_callback(self, msg):
-        item, is_ok, data, data_len = msg
+        item, is_ok, data = msg
         index = self.excel_data.index(item)
         if is_ok:
             print(index, '抓取数据长度：', len(data))
@@ -360,10 +357,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
             self.crawl_status_list[index] = True
-            p_v = self.progress.getValue() + (1 / data_len) * 100
-            self.progress.setValue(p_v)
-            self.progress.show()
-            QApplication.processEvents()
         else:
             print('读取失败，data=', data)
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
@@ -376,13 +369,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             # 切换到数据分析标签，并填充数据
             self.hidden_frame('data_analysis')
             self.update_talbe2()
-            self.progress.hide()
-            QApplication.processEvents()
 
     def crawl(self):
-        if not self.check_progress():
-            return
-
         if not self.excel_data:
             message_box = MyMessageBox()
             message_box.setContent("参数缺失", "未导入任何爬读取参数")
@@ -432,18 +420,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
         # 多线程爬取
         # 创建线程
-        self.progress.setContent("进度", "原始数据获取中---")
-        self.progress.setValue(1)
-        self.progress.show()
         self.crawl_btn.setEnabled(False)
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
         self.thread_list = []
-        data_len = len(self.excel_data)
-        for index, item in enumerate(self.excel_data):
-            cache_dir = os.path.join('tmp', 'cache', 'source_data', str(index))
-                                    # datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + str(index))
-            tmp_thread = CrawlThread(item, username, password, model, item['telemetry_num'], create_time, end_time,
-                                     cache_dir, data_len)
+        for item in self.excel_data:
+            tmp_thread = CrawlThread(item, username, password, model, item['telemetry_num'], create_time, end_time)
             tmp_thread._signal.connect(self.crawl_callback)
             self.thread_list.append(tmp_thread)
 
@@ -452,9 +433,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             thread.start()
 
     def manual_choice(self, r):
-        if not self.check_progress():
-            return
-
         self.fileinfo_table_2.selectRow(r)
         self.update_choice_parms()
         self.manual_item = self.excel_data[r]
@@ -463,15 +441,18 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.setContent("获取失败", "请检查数据后重新读取")
             message_box.exec_()
             return
-
-        self.progress.setContent("进度", "数据加载中---")
-        self.progress.setValue(1)
-        self.progress.show()
         self.choice_data = copy.deepcopy(self.manual_item["data"])
         self.undo_list = []
         # 传递到手动剔野页面,更新数据
         raw = copy.deepcopy(self.raw_data[r]["data"])
-        self.draw_line(raw)
+        l_x, l_y = self.get_choice_data_xy(raw)
+        r_x, r_y = self.get_choice_data_xy()
+        if self.l_plot_data == None:
+            self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
+            self.r_plot_data = self.r_pw.plot(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
+        else:
+            self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
+            self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
 
         # 手动剔野界面状态重置
         self.region.setSize([0, 0], [0, 0])
@@ -621,9 +602,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     # 删除数据
     def delete_data(self):
-        if not self.check_progress():
-            return
-
         if self.r_pw.is_manual_edit:  # 手动剔野
             # 选定区域
             select_range = self.r_pw.roi_range
@@ -632,12 +610,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
             undo_data = copy.deepcopy(self.choice_data)
             self.undo_list.append(undo_data)
             # 修改数据
-            self.manual_detele_file_data(self.choice_data, select_range)
-            # 修改过后重新绘制
-            self.progress.setContent("进度", "数据剔野中---")
-            self.progress.show()
-            self.redraw_r(self.choice_data)
-
+            for time_str, v in self.choice_data.items():
+                # 时间判断
+                f = self.timestr2timestamp(time_str)
+                if f >= select_range[0] and f <= select_range[2]:
+                    if v > select_range[1] and v < select_range[3]:
+                        self.choice_data[time_str] = 0
+            x, y = self.get_choice_data_xy()
+            self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
         elif self.r_pw.is_rate_edit:  # 变化率剔野
             undo_data = copy.deepcopy(self.choice_data)
             self.undo_list.append(undo_data)
@@ -649,7 +629,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
     def delete_undo(self):
-        return
         if self.undo_list:
             self.choice_data = self.undo_list.pop()
             x, y = self.get_choice_data_xy()
@@ -1003,13 +982,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         return False
 
     def report_excel(self):
-        # 检查是否存在数据
-        if not (self.excel_data and self.excel_data[0]['data']):
-            message_box = MyMessageBox()
-            message_box.setContent("数据缺失", "还未获取到任何数据")
-            message_box.exec_()
-            return
-
         # 选择路径与文件名
         reportname = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y%m%d_%H%M') + '.docx')
         fileName_choose, filetype = QtWidgets.QFileDialog.getSaveFileName(self,
@@ -1029,12 +1001,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 准备数据
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
-        start_y = create_time[0:4]
-        start_m = create_time[5:7]
-        start_d = create_time[8:10]
-        end_y = end_time[0:4]
-        end_m = end_time[5:7]
-        end_d = end_time[8:10]
+
+        start_y, start_m, start_d = create_time.split(' ')[0].split('/')
+        end_y, end_m, end_d = end_time.split(' ')[0].split('/')
+        # start_y = create_time[0:4]
+        # start_m = create_time[5:7]
+        # start_d = create_time[8:10]
+        # end_y = end_time[0:4]
+        # end_m = end_time[5:7].replace('/', '')
+        # end_d = end_time[8:10].replace('/', '')
         error_number, records = self.create_table1_data()
         if error_number == 0:
             error_text = '无异常现象。'
@@ -1045,7 +1020,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 标题一
         document.styles['Normal'].font.name = u'微软雅黑'
         document.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
-        head_text = '1.XXXX卫星' + start_y + '年' + start_m + '月' + '至' + end_m + '月在轨维护报告'
+        head_text = '1.XXXX卫星' + start_y + '年' + start_m + '月' + start_d + '日' + '至' + end_m + '月' + end_d + '在轨维护报告'
         heading = document.add_heading('', level=0).add_run(head_text)
         heading.font.name = u'微软雅黑'
         heading._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
@@ -1072,7 +1047,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # records = self.create_table1_data()
         for order_number, test_content, telemetry_num, on_normal_range, normal_range, result in records:
             row_cells = table.add_row().cells
-            row_cells[0].text = str(order_number)
+            row_cells[0].text = str(order_number + 1)
             row_cells[1].text = test_content
             row_cells[2].text = telemetry_num
             row_cells[3].text = self.range_cut(on_normal_range)
@@ -1095,13 +1070,16 @@ class UiTest(QMainWindow, Ui_MainWindow):
         records1 = self.create_table2_data()
         for order_number, telemetry_params_num, params_num, status_bit, state_change in records1:
             h_cells = table1.add_row().cells
-            h_cells[0].text = str(order_number)
+            h_cells[0].text = str(order_number + 1)
             h_cells[1].text = telemetry_params_num
             h_cells[2].text = params_num
             h_cells[3].text = status_bit
             h_cells[4].text = state_change
 
-        document.add_heading('1.1 XXXX卫星控制系统性能在轨状况', level=1)
+        one_head = '1.1 XXXX卫星控制系统性能在轨状况'
+        one_heading = document.add_heading('', level=1).add_run(one_head)
+        one_heading.font.name = u'微软雅黑'
+        one_heading._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
 
         # 多组数据组合制图
         drafting_number = {}
@@ -1125,9 +1103,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
             table1_title = table1_title.paragraph_format
             table1_title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
-        document.add_heading('1.2 二浮陀螺在轨运行状况', level=1)
+        two_head = '1.2 二浮陀螺在轨运行状况'
+        two_heading = document.add_heading('', level=1).add_run(two_head)
+        two_heading.font.name = u'微软雅黑'
+        two_heading._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
 
-        document.add_heading('总结', level=1)
+        thr_head = '总结'
+        thr_heading = document.add_heading('', level=1).add_run(thr_head)
+        thr_heading.font.name = u'微软雅黑'
+        thr_heading._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
 
         document.save(fileName_choose)
 
@@ -1146,7 +1130,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             item = self.excel_data[index]
             if item['data'] == [] or item['data'] is None:
                 continue
-            if 'SPE故障判断允许位' in item['telemetry_name']:
+            if '允许' in item['normal_range']:
                 continue
             parms_range = self.get_data_range(item["data"])
             normal_split = item['normal_range'].replace('°', '').replace('[', '').replace(']', '').replace('~',
@@ -1173,10 +1157,19 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def create_table2_data(self):
         # todo 这里逻辑需要完善
-        date = (
-            (1, 'CIP故障判断允许', 'RKSC16', '允许/1', '不允许/0'),
-        )
-        return date
+        data = []
+        error_number = 0
+        num = 0
+        for index in range(len(self.excel_data)):
+            item = self.excel_data[index]
+            if '允许' not in item['normal_range']:
+                continue
+
+            child = (
+                num, item['telemetry_name'], item["telemetry_num"], item['normal_range'], '不允许/0')
+            num = num + 1
+            data.append(child)
+        return tuple(data)
 
     def split_image(self, source_paths, save_path, flag='horizontal'):
         """
@@ -1252,124 +1245,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         datetime_obj = datetime.datetime.strptime(timestr, "%Y-%m-%d %H:%M:%S.%f")
         ret_stamp = int(time.mktime(datetime_obj.timetuple()) * 1000.0 + datetime_obj.microsecond / 1000.0)
         return ret_stamp / 1000
-
-
-    def read_cache(self, filename, filter_status=False):
-        x = []
-        y = []
-        status = []
-        with open(filename, 'r') as f:
-            if filter_status:
-                for line in f:
-                    tmp_time, tmp_value, tmp_status = line.split('|')
-                    tmp_status = int(tmp_status.replace('\n', ''))
-                    if tmp_status == 1:  # 0:未处理, 1: 被踢除
-                        continue
-                    x.append(self.timestr2timestamp(tmp_time))
-                    y.append(float(tmp_value))
-                    status.append(tmp_status)
-            else:
-                for line in f:
-                    tmp_time, tmp_value, tmp_status = line.split('|')
-                    x.append(self.timestr2timestamp(tmp_time))
-                    y.append(float(tmp_value))
-                    status.append(int(tmp_status.replace('\n', '')))
-        gc.collect()
-        return x, y, status
-
-
-    def read_cache_original(self, filename):
-        tuple_list = []
-        with open(filename, 'r') as f:
-            for line in f:
-                tmp_time, tmp_value, tmp_status = line.split('|')
-                tuple_list.append([tmp_time, float(tmp_value), int(tmp_status.replace('\n', ''))])
-        return tuple_list
-
-
-
-    def write_cache_original(self,filename, file_data):
-        with open(filename, 'w') as f:
-            lines = [str(item[0]) + '|' + str(item[1]) + '|' + str(item[2]) + '\n' for item in file_data]
-            f.writelines(lines)
-
-    # 分段绘制曲线
-    def draw_line(self, raw_data):
-        data = raw_data
-        x_all = []
-        y_all = []
-        for index, item in enumerate(data):
-            pd = 0 if len(data) == 0 else index/len(data) * 100
-            self.progress.setValue(pd)
-            QApplication.processEvents()
-            if index % 100 == 0:
-                print(index, '/', len(data))
-            x, y, status = self.read_cache(item['filename'], True)
-            x_all = x_all + x
-            y_all = y_all + y
-
-        self.l_plot_data = self.l_pw.plot(x=x_all, y=y_all, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
-        self.r_plot_data = self.r_pw.plot(x=x_all, y=y_all, pen=pg.mkPen('r', width=1))  # 在绘图控件中绘制图形
-        self.progress.setValue(100)
-        self.progress.hide()
-        QApplication.processEvents()
-
-
-
-    def redraw_r(self, data):
-        x_all = []
-        y_all = []
-        for index, item in enumerate(data):
-            pd = 0 if len(data) == 0 else index/len(data) * 100
-            self.progress.setValue(pd)
-            QApplication.processEvents()
-            if index % 100 == 0:
-                print(index, '/', len(data))
-            x, y, status = self.read_cache(item['filename'], True)
-            x_all = x_all + x
-            y_all = y_all + y
-        self.r_plot_data.setData(x=x_all, y=y_all, pen=pg.mkPen('r', width=1))  # 在绘图控件中绘制图形
-        self.progress.hide()
-
-
-
-    def manual_detele_file_data(self, choice_data, select_range):
-        undo_file_list = []
-        start_time = self.timespam2datetime(select_range[0])
-        end_time = self.timespam2datetime(select_range[2])
-        for item in choice_data:
-            if item['start_time'] > end_time or item['end_time'] < start_time:
-                # 都不是剔除点
-                continue
-            tmp_data = self.read_cache_original(item['filename'])
-            if item['start_time'] > start_time and item['end_time'] < end_time:
-                # 全部都是剔除点
-                for index, t in enumerate(tmp_data):
-                    if t[1] > select_range[1] and t[1] < select_range[3]:
-                        t[2] = 1
-                self.write_cache_original(item['filename'], tmp_data)
-            else:
-                # 部分是剔除点
-                for index, t in enumerate(tmp_data):
-                    if t[0] > start_time and t[0] < end_time:
-                        if t[1] > select_range[1] and t[1] < select_range[3]:
-                            t[2] = 1
-                self.write_cache_original(item['filename'], tmp_data)
-
-
-
-    def timespam2datetime(self, spam):
-        struct_time = time.localtime(spam)  # 得到结构化时间格式
-        now_time = time.strftime("%Y-%m-%d %H:%M:%S", struct_time)
-        return str(now_time) + "." + str(spam)[-6:]
-
-    def check_progress(self):
-        if self.progress.isShow:
-            self.progress.showNormal()
-            return False
-        else:
-            return True
-
 
 
 class TimeAxisItem(pg.AxisItem):
