@@ -76,6 +76,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.data_get_btn.clicked.connect(lambda: self.select_tab('data_get'))
         self.data_analysis_btn.clicked.connect(lambda: self.select_tab('data_analysis'))
         self.choice_btn.clicked.connect(lambda: self.select_tab('choice'))
+        self.select_range_btn.clicked.connect(self.select_range)
+        self.zoom_in_btn.clicked.connect(self.zoom_in)
+        self.zoom_out_btn.clicked.connect(self.zoom_out)
 
     def init_style(self):
         logo = QtGui.QPixmap('source/logo.png')
@@ -107,7 +110,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if tab == "data_get":
             self.frame.setHidden(False)
             self.fileinfo_table.setHidden(False)
+            self.frame_7.setHidden(False)
             self.label_2.setHidden(False)
+            self.open_sdat_btn.setHidden(False)
 
             self.frame_2.setHidden(True)
             self.fileinfo_table_2.setHidden(True)
@@ -124,7 +129,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         elif tab == 'data_analysis':
             self.frame.setHidden(True)
             self.fileinfo_table.setHidden(True)
+            self.frame_7.setHidden(True)
             self.label_2.setHidden(True)
+            self.open_sdat_btn.setHidden(True)
 
             self.frame_2.setHidden(False)
             self.fileinfo_table_2.setHidden(False)
@@ -148,7 +155,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
             self.frame.setHidden(True)
             self.fileinfo_table.setHidden(True)
+            self.frame_7.setHidden(True)
             self.label_2.setHidden(True)
+            self.open_sdat_btn.setHidden(True)
 
             self.frame_2.setHidden(True)
             self.fileinfo_table_2.setHidden(True)
@@ -295,9 +304,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
         filename_list, filetype = QtWidgets.QFileDialog.getOpenFileNames(self,
-                                                                          "选取文件",
-                                                                          os.getcwd(),  # 起始路径
-                                                                          "sDat Files (*.sDat)")
+                                                                         "选取文件",
+                                                                         os.getcwd(),  # 起始路径
+                                                                         "sDat Files (*.sDat)")
         if filename_list == []:
             return
 
@@ -481,8 +490,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.hidden_frame('data_analysis')
             self.update_talbe2()
 
-
-
     def manual_choice(self, r):
         '''
         手动剔野按钮事件
@@ -499,7 +506,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
 
-        data = satellite_data.resampling(satellite_data.dataHead['start_time'], satellite_data.dataHead['end_time'], self.progress)
+        data = satellite_data.resampling(satellite_data.dataHead['start_time'], satellite_data.dataHead['end_time'],
+                                         self.progress)
         if self.manual_item.star_data == [] or self.manual_item.star_data is None:
             message_box = MyMessageBox()
             message_box.setContent("获取失败", "请检查数据后重新读取")
@@ -523,6 +531,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_pw.reset_rate_edit()
         self.r_pw.is_manual_edit = False
         self.r_pw.is_rate_edit = False
+
+        # 放大与缩小
+        self.zoom_in_btn.setEnabled(False)
+        self.zoom_in_btn.setStyleSheet(
+            'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+        self.zoom_out_btn.setEnabled(False)
+        self.zoom_out_btn.setStyleSheet(
+            'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
 
         self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
         self.rate_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
@@ -569,6 +585,65 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
         self.hidden_frame(tab_type)
+
+    def select_range(self):
+        if self.zoom_in_btn.isEnabled():
+            self.select_range_btn.setStyleSheet(
+                'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+            self.zoom_in_btn.setEnabled(False)
+            self.zoom_in_btn.setStyleSheet(
+                'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+            self.zoom_out_btn.setEnabled(False)
+            self.zoom_out_btn.setStyleSheet(
+                'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+
+            if self.r_pw.is_manual_edit:
+                self.edit_model(Qt.Key_M)
+                self.edit_model(Qt.Key_M)
+            elif self.r_pw.is_rate_edit:
+                self.edit_model(Qt.Key_R)
+                self.edit_model(Qt.Key_R)
+
+            self.manual_btn.setEnabled(True)
+            self.rate_btn.setEnabled(True)
+        else:
+            self.select_range_btn.setStyleSheet(
+                'background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
+            self.zoom_in_btn.setEnabled(True)
+            self.zoom_in_btn.setStyleSheet(
+                'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+            self.zoom_out_btn.setEnabled(True)
+            self.zoom_out_btn.setStyleSheet(
+                'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+
+            # 下面按钮栏全部禁用
+            self.manual_btn.setEnabled(False)
+            self.manual_btn.setStyleSheet(
+                'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+            self.rate_btn.setEnabled(False)
+            self.rate_btn.setStyleSheet(
+                'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+            self.undo_btn.setEnabled(False)
+            self.undo_btn.setStyleSheet(
+                'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+            self.undo_base_btn.setEnabled(False)
+            self.undo_base_btn.setStyleSheet(
+                'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+            self.delete_btn.setEnabled(False)
+            self.delete_btn.setStyleSheet(
+                'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+            self.save_change_btn.setEnabled(False)
+            self.save_change_btn.setStyleSheet(
+                'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+
+            # 重置选择框
+            self.r_pw.region.setSize([0, 0])
+
+    def zoom_in(self):
+        pass
+
+    def zoom_out(self):
+        pass
 
     def edit_model(self, key):
         if key == Qt.Key_M:
@@ -650,6 +725,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.edit_model(key)
         elif key == Qt.Key_D:
             self.delete_data()
+        elif key == Qt.Key_S:
+            self.select_range()
 
     def get_choice_data_xy(self, raw_data=None):
         if raw_data == None:

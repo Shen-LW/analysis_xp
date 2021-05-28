@@ -847,7 +847,7 @@ border:0px;</string>
       <widget class="QLabel" name="position_lable">
        <property name="geometry">
         <rect>
-         <x>20</x>
+         <x>440</x>
          <y>10</y>
          <width>501</width>
          <height>31</height>
@@ -869,6 +869,57 @@ border:0px;</string>
        </property>
        <property name="text">
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;时间：%0.1f  &lt;/span&gt;&lt;span style=&quot; font-size:12pt; color:#ff0000;&quot;&gt;y = %0.1f&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="zoom_out_btn">
+       <property name="geometry">
+        <rect>
+         <x>310</x>
+         <y>10</y>
+         <width>110</width>
+         <height>30</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color:#455ab3;color:#fff;
+font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
+       </property>
+       <property name="text">
+        <string>缩小（-）</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="zoom_in_btn">
+       <property name="geometry">
+        <rect>
+         <x>180</x>
+         <y>10</y>
+         <width>110</width>
+         <height>30</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color:#455ab3;color:#fff;
+font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
+       </property>
+       <property name="text">
+        <string>放大 (+)</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="select_range_btn">
+       <property name="geometry">
+        <rect>
+         <x>50</x>
+         <y>10</y>
+         <width>110</width>
+         <height>30</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color:#455ab3;color:#fff;
+font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
+       </property>
+       <property name="text">
+        <string>选择区域（S）</string>
        </property>
       </widget>
      </widget>

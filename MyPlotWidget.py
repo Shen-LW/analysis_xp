@@ -116,15 +116,13 @@ class MyPlotWidget(pg.PlotWidget):
                 self.translate(tr[0], tr[1])
                 self.sigDeviceRangeChanged.emit(self, self.range)
 
-
     def updata_position(self, x, y):
         self.vLine.setPos(x)
         self.hLine.setPos(y)
         x = str(datetime.datetime.fromtimestamp(x))
-        y = str(y)
-        position = "<span style='font-size: 12pt'> 时间：" + x + "， <span style='color: red'>y= " + y + "</span>"
+        y = str(round(y, 3))
+        position = "<span style='font-size: 12pt'> x(时间)=" + x + "， <span style='color: red'>y= " + y + "</span>"
         self.position_lable.setText(position)
-
 
     def undo_base_line(self):
         if self.undo_base_point_list:
@@ -138,3 +136,4 @@ class MyPlotWidget(pg.PlotWidget):
                     self.removeItem(self.undo_base_point_list.pop())
                     self.base_point_list.pop()
         self.is_rate_edit = False
+
