@@ -1,4 +1,6 @@
 1、安装Python3.4.4。到C:/python34
+     升级pip版本：C:\Python34\python.exe -m pip install --upgrade pip==18.0
+     注意pip版本一定不要超过18.0，不然pip和python3.4将不兼容，导致只能重新安装python
 
 2、批量安装依赖；
 pip install -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt

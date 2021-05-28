@@ -4,6 +4,7 @@
 import requests
 import json
 import time
+import gc
 import random
 import datetime
 import collections
@@ -86,7 +87,7 @@ def find_grant(date_stamp, cookie, sat_id, telemetry_name):
     return items['records']
 
 
-def crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time):
+def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time):
     menu_headers = {
         'Cookie': cookie,
         'Origin': 'http://www.ygzx.cast',
@@ -98,7 +99,6 @@ def crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, 
 
     }
 
-    data = []
     limit = 5000
     tmParamStr = str(start_time) + '|' + str(end_time) + "|" + str(mid) + "&" + str(telemetry_num) + '&' + str(
         telemetry_id) + '&0|'
@@ -121,7 +121,6 @@ def crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, 
         items = r_json['items']
         s = requests.session()
         s.keep_alive = False
-        data = data + items
         if count == 0 or count < limit:
             break
         else:
@@ -131,10 +130,12 @@ def crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, 
             form_data["tmParamStr"] = str(new_start_time) + '|' + str(end_time) + "|" + str(mid) + "&" + str(
                 telemetry_num) + '&' + str(telemetry_id) + '&0|'
 
-    # with open('crawl.json', 'w', encoding="utf-8") as fp:
-    #     fp.write(data)
-    # print("写入crawl.json成功")
-    return data
+        tmp_data = parse_data(items)
+        satellite_data.add_data(tmp_data)
+        del items
+        del tmp_data
+        gc.collect()
+
 
 
 def check_login(username, password):
@@ -148,7 +149,7 @@ def check_login(username, password):
         return True
 
 
-def crawl(username, password, model_name, telemetry_name, start_time, end_time):
+def crawl(satellite_data, username, password, model_name, telemetry_name, start_time, end_time):
     start_time = trans_time(start_time)
     end_time = trans_time(end_time)
     cookie = get_cookie(username, password)
@@ -178,9 +179,10 @@ def crawl(username, password, model_name, telemetry_name, start_time, end_time):
     else:
         return False, "未解析到遥测代号"
     # 实际爬取数据
-    data = crawldata(date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
-    items = parse_data(data)
-    return True, items
+    crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
+    satellite_data.rename_extension()
+    return True, satellite_data
+
 
 
 def create_test_timedata(start_time_str, end_time_str, min_value, max_value):
@@ -199,16 +201,338 @@ def create_test_timedata(start_time_str, end_time_str, min_value, max_value):
 
 
 def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time):
+    # 起止时间段切分，对每个时间段采用不同的范围
+    def trans_data_time(time_str):
+        '''
+        :param time_str:
+        :return:
+        '''
+        #  2020-10-11 18:25:27.454000
+        l = time_str.split(" ")
+        s = l[1].split(":")
+        d = l[0].replace('/', '-')
+        d = '-'.join([i if len(i) > 1 else '0' + i for i in d.split('-')])
+        h = s[0] if len(s[0]) == 2 else '0' + s[0]
+        m = s[1]
+        s = '00000'
+        new_time = d + ' ' + h + ':' + m + ':00.00000'
+
+        new_time = datetime.datetime.strptime(new_time, "%Y-%m-%d %H:%M:%S.%f")
+        return new_time
+
+
+    start_time = trans_data_time(start_time)
+    end_time = trans_data_time(end_time)
+    # 安照10分钟生成数据
+    while 1:
+        min_value = random.randint(-1000, 0) / 1000
+        max_value = random.randint(0, 1000) / 1000
+        next_time = start_time + datetime.timedelta(minutes=10)
+        start_time_str = str(start_time) + '.454'
+        if next_time < end_time:
+            end_time_str = str(next_time) + '.454'
+            items = create_test_timedata(start_time_str, end_time_str, min_value, max_value)
+            # 增加一个随机噪声
+            index = random.randint(0, 599)
+            items[index]["V02317575"] = items[index]["V02317575"] * 2
+            items = parse_data(items)
+            items_keys = [k for k in items.keys()]
+            for i in range(0, len(items_keys), 10000):
+                tm = collections.OrderedDict()
+                for item_key in items_keys[i:i + 10000]:
+                    tm[item_key] = items[item_key]
+                satellite_data.add_data(tm)
+            del items
+            del items_keys
+            gc.collect()
+            start_time = next_time
+        else:
+            end_time_str = str(end_time) + '.454'
+            items = create_test_timedata(start_time_str, end_time_str, min_value, max_value)
+            # 增加一个随机噪声
+            index = random.randint(0, 599)
+            items[index]["V02317575"] = items[index]["V02317575"] * 2
+            items = parse_data(items)
+            items_keys = [k for k in items.keys()]
+            for i in range(0, len(items_keys), 10000):
+                tm = collections.OrderedDict()
+                for item_key in items_keys[i:i + 10000]:
+                    tm[item_key] = items[item_key]
+                satellite_data.add_data(tm)
+            del items
+            del items_keys
+            gc.collect()
+            break
+
+    satellite_data.rename_extension()
+    return True, satellite_data
+
+
+
+
+
+
+
+
     # 生成随机数据
-    items_1 = create_test_timedata("2020-10-11 18:25:27.454", "2020-10-11 19:25:27.454", -0.15, 0.1)
-    items_2 = create_test_timedata("2020-10-11 19:45:27.454", "2020-10-11 21:25:27.454", -0.15, 0.1)
+    items_1 = create_test_timedata("2020-10-11 00:00:00.454", "2020-10-28 19:25:27.454", -0.15, 0.1)
+    items_2 = create_test_timedata("2020-10-28 19:45:27.454", "2020-11-12 00:00:00.454", -0.15, 0.1)
     items = items_1 + items_2
     items[300]["V02317575"] = 0.5
     items[3000]["V02317575"] = -0.5
     items[6000]["V02317575"] = 0.5
     items = parse_data(items)
+    items_keys = [k for k in items.keys()]
+    for i in range(0, len(items_keys), 10000):
+        tm = collections.OrderedDict()
+        for item_key in items_keys[i:i+10000]:
+            tm[item_key] = items[item_key]
+        satellite_data.add_data(tm)
+    del items_1
+    del items_2
+    del items
+    del items_keys
+    gc.collect()
 
-    satellite_data.add_data(items)
+    # items_1 = create_test_timedata("2020-11-12 00:00:00.454", "2020-11-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2020-11-28 19:45:27.454", "2020-12-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i+10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    # items_1 = create_test_timedata("2020-12-12 00:00:00.454", "2020-12-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2020-12-28 19:45:27.454", "2021-01-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i+10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    #
+    # items_1 = create_test_timedata("2021-01-12 00:00:00.454", "2021-01-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2021-01-28 19:45:27.454", "2021-02-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i+10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    #
+    # items_1 = create_test_timedata("2021-01-12 00:00:00.454", "2021-01-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2021-01-28 19:45:27.454", "2021-02-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i + 10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    #
+    # items_1 = create_test_timedata("2021-02-12 00:00:00.454", "2021-02-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2021-02-28 19:45:27.454", "2021-03-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i + 10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    #
+    # items_1 = create_test_timedata("2021-03-12 00:00:00.454", "2021-03-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2021-03-28 19:45:27.454", "2021-04-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i + 10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    #
+    # items_1 = create_test_timedata("2021-04-12 00:00:00.454", "2021-04-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2021-04-28 19:45:27.454", "2021-05-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i + 10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    #
+    # items_1 = create_test_timedata("2021-05-12 00:00:00.454", "2021-05-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2021-05-28 19:45:27.454", "2021-06-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i + 10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    #
+    # items_1 = create_test_timedata("2021-06-12 00:00:00.454", "2021-06-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2021-06-28 19:45:27.454", "2021-07-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i + 10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    #
+    # items_1 = create_test_timedata("2021-07-12 00:00:00.454", "2021-07-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2021-07-28 19:45:27.454", "2021-08-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i + 10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    #
+    # items_1 = create_test_timedata("2021-08-12 00:00:00.454", "2021-08-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2021-08-28 19:45:27.454", "2021-09-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i + 10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+    #
+    # items_1 = create_test_timedata("2021-09-12 00:00:00.454", "2021-09-28 19:25:27.454", -0.15, 0.1)
+    # items_2 = create_test_timedata("2021-09-28 19:45:27.454", "2021-10-12 00:00:00.454", -0.15, 0.1)
+    # items = items_1 + items_2
+    # items[300]["V02317575"] = 0.5
+    # items[3000]["V02317575"] = -0.5
+    # items[6000]["V02317575"] = 0.5
+    # items = parse_data(items)
+    # items_keys = [k for k in items.keys()]
+    # for i in range(0, len(items_keys), 10000):
+    #     tm = collections.OrderedDict()
+    #     for item_key in items_keys[i:i + 10000]:
+    #         tm[item_key] = items[item_key]
+    #     satellite_data.add_data(tm)
+    #
+    # del items_1
+    # del items_2
+    # del items
+    # del items_keys
+    # gc.collect()
+
     satellite_data.rename_extension()
     return True, satellite_data
 

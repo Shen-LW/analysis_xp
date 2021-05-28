@@ -29,5 +29,5 @@ class CrawlThread(QtCore.QThread):
         # time.sleep(0.3)
         # 测试，使用相同数据
         is_ok, satellite_data = crawl_test(self.satellite_data, self.model, "", self.create_time, self.end_time)
-        # is_ok, satellite_data = crawl(self.username, self.password, self.model, self.telemetry_num, self.create_time, self.end_time)
-        self._signal.emit((self.item, is_ok, satellite_data))
+        # is_ok, satellite_data = crawl(self.satellite_data, self.username, self.password, self.model, self.telemetry_num, self.create_time, self.end_time)
+        self._signal.emit((is_ok, satellite_data))

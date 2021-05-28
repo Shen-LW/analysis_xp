@@ -22,13 +22,14 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.oxml.ns import qn
 
 from interface import Ui_MainWindow
-from crawl import crawl, check_login, crawl_test
+from crawl import trans_time, check_login
 from myMessage import MyMessageBox
 from MyPlotWidget import MyPlotWidget
 from crawlThread import CrawlThread
 from settings import Settings
 from draw_win import DrawWindow
 from satelliteData import SatelliteData
+from myProgress import MyProgress
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -39,9 +40,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(UiTest, self).__init__(parent)
         self.region = pg.RectROI([0, 0], [0, 0], pen=pg.mkPen('g', width=1))  # 框选
-        self.raw_data = []  # 爬取的原始数据
         self.excel_data = []  # 所有excel爬取的数据, 修改记录在这里
-        self.crawl_status_list = []  # 暂存所有列的爬取状态
+        self.crawl_status = False
         self.manual_item = {}  # 当前操作的数据
         self.choice_data = []  # 剔野暂存数据
         self.select_indexs = []  # 自动剔野选择行数组
@@ -49,18 +49,19 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_plot_data = None  # 右侧绘图数据
         self.undo_list = []  # undo队列
         self.undo_base_point_list = []  # 变化率剔野基准点undo队列
-        self.crawl_status = False
         self.setupUi(self)
         self.bing_signal()
         self.extar_control()
         self.create_dir(['tmp/image', 'tmp/data', 'source'])
         self.config = Settings()
         self.init_style()
+        self.progress = MyProgress()
 
     def bing_signal(self):
         self.upload_excel_btn.clicked.connect(self.choose_excel)
         self.crawl_btn.clicked.connect(self.crawl)
         self.report_docx_btn.clicked.connect(self.report_excel)
+        self.open_sdat_btn.clicked.connect(self.reload_sdat)
         self.fileinfo_table_2.itemChanged.connect(self.table_update)
         self.manual_btn.clicked.connect(lambda: self.edit_model(77))  # 77: M
         self.rate_btn.clicked.connect(lambda: self.edit_model(82))  # 82: R
@@ -81,8 +82,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.label_3.setPixmap(logo)
         self.label_3.setScaledContents(True)
         self.hidden_frame('data_get')
-        self.create_time_edit.setDateTime(QDateTime(2011, 4, 22, 16, 33, 15))
-        self.end_time_edit.setDateTime(QDateTime(2011, 4, 27, 16, 33, 15))
+        # self.create_time_edit.setDateTime(QDateTime(2020, 10, 11, 00, 00, 00))
+        # self.end_time_edit.setDateTime(QDateTime(2020, 10, 16, 00, 00, 00))
         self.password_edit.setEchoMode(QLineEdit.Password)
 
         # 加载默认设置
@@ -99,7 +100,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.undo_base_btn.setEnabled(False)
         self.undo_base_btn.setStyleSheet(
             'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-
 
     def hidden_frame(self, tab):
         style_1 = 'font: 75 12pt "微软雅黑";background-color: rgb(255, 255, 255);color:#455ab3;border-top-left-radius:15px;border-top-right-radius:15px;'
@@ -172,12 +172,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 重置软件数据状态
         self.raw_data = []  # 爬取的原始数据
         self.excel_data = []  # 所有excel爬取的数据, 修改记录在这里
-        self.crawl_status_list = []
         self.manual_item = {}  # 当前操作的数据
         self.choice_data = []  # 剔野暂存数据
         self.select_indexs = []  # 自动剔野选择行数组
         self.undo_list = []  # undo列表
-        self.crawl_status = False
         if self.l_plot_data:
             self.l_plot_data.setData(x=[], y=[], pen=pg.mkPen('g', width=1))
         if self.r_plot_data:
@@ -190,6 +188,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.l_widget.setLayout(l_plot_layout)  # 设置K线图部件的布局层
         l_date_axis = TimeAxisItem(orientation='bottom')
         self.l_pw = MyPlotWidget(self, axisItems={'bottom': l_date_axis})  # 创建一个绘图控件
+        self.l_pw.plotItem.setMouseEnabled(y=False)
         self.l_pw.showGrid(x=True, y=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
         self.l_widget.layout().addWidget(self.l_pw)
@@ -199,6 +198,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_widget.setLayout(r_plot_layout)  # 设置K线图部件的布局层
         r_date_axis = TimeAxisItem(orientation='bottom')
         self.r_pw = MyPlotWidget(self, axisItems={'bottom': r_date_axis})  # 创建一个绘图控件
+        self.r_pw.plotItem.setMouseEnabled(y=False)
         self.r_pw.showGrid(x=True, y=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
         self.r_widget.layout().addWidget(self.r_pw)
@@ -259,6 +259,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
             params_two = sheet_1.cell(i, 7).value
             params_three = sheet_1.cell(i, 8).value
             params_four = sheet_1.cell(i, 9).value
+            create_time_text = self.create_time_edit.text()
+            end_time_text = self.end_time_edit.text()
+            start_time = self.trans_data_time(create_time_text)
+            end_time = self.trans_data_time(end_time_text)
             dataHead = {
                 "status": '未读取',
                 'telemetry_name': telemetry_name,
@@ -271,13 +275,36 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 'params_two': params_two,
                 'params_three': params_three,
                 "params_four": params_four,
+                'start_time': start_time,
+                'end_time': end_time
             }
-            create_time = self.create_time_edit.text()
-            end_time = self.end_time_edit.text()
-            file_path = 'tmp/data/' + telemetry_num + '_' + self.trans_time(create_time)[:-5] + '-' + self.trans_time(end_time)[:-5] + '.tmp'
-            satellite_data = SatelliteData(dataHead, file_path)
+            file_path = 'tmp/data/' + telemetry_num + '_' + trans_time(create_time_text)[:-5] + '-' + trans_time(
+                end_time_text)[:-5] + '.tmp'
+            satellite_data = SatelliteData(dataHead=dataHead, file_path=file_path)
             self.excel_data.append(satellite_data)
-        self.crawl_status_list = [None for i in range(len(self.excel_data))]
+        self.update_talbe1()
+        self.crawl_btn.setEnabled(True)
+        self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
+
+    def reload_sdat(self):
+        # 手动加载数据
+
+        if self.crawl_status:
+            message_box = MyMessageBox()
+            message_box.setContent("请等待", "请等待数据读取完成")
+            message_box.exec_()
+            return
+        filename_list, filetype = QtWidgets.QFileDialog.getOpenFileNames(self,
+                                                                          "选取文件",
+                                                                          os.getcwd(),  # 起始路径
+                                                                          "sDat Files (*.sDat)")
+        if filename_list == []:
+            return
+
+        for filename in filename_list:
+            star = SatelliteData(file_path=filename, dataHead=None)
+            self.excel_data.append(star)
+
         self.update_talbe1()
         self.crawl_btn.setEnabled(True)
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
@@ -291,7 +318,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         row = len(excel_data)
         self.fileinfo_table.setRowCount(len(excel_data))
         for r in range(row):
-            item = excel_data[r]
+            item = excel_data[r].dataHead
             self.fileinfo_table.setItem(r, 0, QTableWidgetItem(str(item['status'])))
             self.fileinfo_table.setItem(r, 1, QTableWidgetItem(str(item['telemetry_name'])))
             self.fileinfo_table.setItem(r, 2, QTableWidgetItem(str(item['telemetry_num'])))
@@ -332,10 +359,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
         row = len(excel_data)
         self.fileinfo_table_2.setRowCount(len(excel_data))
         for r in range(row):
-            item = excel_data[r]
+            item = excel_data[r].dataHead
             selectBtn = self.getSelectButton(r)
             self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
-            tmp_text = "未剔野" if item['data'] else "数据读取失败"
+            # todo 读取失败的判断
+            tmp_text = "未剔野" if item['status'] is not None else "数据读取失败"
             self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
             if tmp_text == '数据读取失败':
                 self.fileinfo_table_2.item(r, 1).setBackground(QColor(255, 185, 15))
@@ -353,24 +381,28 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
 
     def crawl_callback(self, msg):
-        item, is_ok, satellite_data = msg
-        index = self.excel_data.index(item)
+        is_ok, satellite_data = msg
+        index = self.excel_data.index(satellite_data)
         if is_ok:
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(100, 255, 0))
-            self.crawl_status_list[index] = True
+            p_v = self.progress.getValue() + (1 / len(self.excel_data)) * 100
+            self.progress.setValue(p_v)
+            self.progress.show()
+            QApplication.processEvents()
         else:
             print('读取失败，data=', satellite_data)
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
-            self.crawl_status_list[index] = False
 
-        if None not in self.crawl_status_list:
+        if '未爬取' not in [item.dataHead['status'] for item in self.excel_data]:
             self.crawl_status = False
-            self.raw_data = copy.deepcopy(self.excel_data)
             # 切换到数据分析标签，并填充数据
             self.hidden_frame('data_analysis')
             self.update_talbe2()
+            self.progress.setValue(100)
+            self.progress.hide()
+            QApplication.processEvents()
 
     def crawl(self):
         if not self.excel_data:
@@ -399,7 +431,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         # todo: 发布前记得复原
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
-        # 判断账号密码是否正确
+        # # 判断账号密码是否正确
         # try:
         #     is_login = check_login(username, password)
         # except Exception as e:
@@ -426,28 +458,57 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
         self.thread_list = []
         for satellite_data in self.excel_data:
-            tmp_thread = CrawlThread(satellite_data, username, password, model, create_time, end_time)
-            tmp_thread._signal.connect(self.crawl_callback)
-            self.thread_list.append(tmp_thread)
+            if satellite_data.dataHead['status'] == '未读取':
+                create_time_1 = self.trans_data_time(create_time)
+                end_time_1 = self.trans_data_time(end_time)
+                satellite_data.dataHead['start_time'] = create_time_1
+                satellite_data.dataHead['end_time'] = end_time_1
+                tmp_thread = CrawlThread(satellite_data, username, password, model, create_time, end_time)
+                tmp_thread._signal.connect(self.crawl_callback)
+                self.thread_list.append(tmp_thread)
 
         # 开始线程
-        for thread in self.thread_list:
-            thread.start()
+        if self.thread_list:
+            for thread in self.thread_list:
+                thread.start()
+                self.progress.setContent('读取中', '数据读取中，请等待')
+                self.progress.setValue(5)
+                self.progress.show()
+                QApplication.processEvents()
+        else:
+            self.crawl_status = False
+            # 切换到数据分析标签，并填充数据
+            self.hidden_frame('data_analysis')
+            self.update_talbe2()
+
+
 
     def manual_choice(self, r):
+        '''
+        手动剔野按钮事件
+        :param r:
+        :return:
+        '''
         self.fileinfo_table_2.selectRow(r)
         self.update_choice_parms()
         self.manual_item = self.excel_data[r]
-        if self.manual_item['data'] == [] or self.manual_item['data'] is None:
+        satellite_data = self.excel_data[r]
+        if not os.path.exists(satellite_data.file_path):
+            message_box = MyMessageBox()
+            message_box.setContent("获取失败", "数据文件位置可能发生变化")
+            message_box.exec_()
+            return
+
+        data = satellite_data.resampling(satellite_data.dataHead['start_time'], satellite_data.dataHead['end_time'], self.progress)
+        if self.manual_item.star_data == [] or self.manual_item.star_data is None:
             message_box = MyMessageBox()
             message_box.setContent("获取失败", "请检查数据后重新读取")
             message_box.exec_()
             return
-        self.choice_data = copy.deepcopy(self.manual_item["data"])
+        self.choice_data = copy.deepcopy(self.manual_item.star_data)
         self.undo_list = []
         # 传递到手动剔野页面,更新数据
-        raw = copy.deepcopy(self.raw_data[r]["data"])
-        l_x, l_y = self.get_choice_data_xy(raw)
+        l_x, l_y = self.get_choice_data_xy(self.manual_item.star_data)
         r_x, r_y = self.get_choice_data_xy()
         if self.l_plot_data == None:
             self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
@@ -826,8 +887,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def update_choice_parms(self):
         # 通过界面剔野参数跟新源数据
-        for item in self.excel_data:
-            index = self.excel_data.index(item)
+        for star in self.excel_data:
+            item = star.dataHead
+            index = self.excel_data.index(star)
             item['normal_range'] = self.fileinfo_table_2.item(int(index), 4).text()
             item['telemetry_source'] = self.fileinfo_table_2.item(int(index), 5).text()
             item['img_num'] = self.fileinfo_table_2.item(int(index), 6).text()
@@ -1247,6 +1309,23 @@ class UiTest(QMainWindow, Ui_MainWindow):
         datetime_obj = datetime.datetime.strptime(timestr, "%Y-%m-%d %H:%M:%S.%f")
         ret_stamp = int(time.mktime(datetime_obj.timetuple()) * 1000.0 + datetime_obj.microsecond / 1000.0)
         return ret_stamp / 1000
+
+    def trans_data_time(self, time_str):
+        '''
+        将控件时间转换为和数据时间一样的格式
+        :param time_str:
+        :return:
+        '''
+        #  2020-10-11 18:25:27.454000
+        l = time_str.split(" ")
+        s = l[1].split(":")
+        d = l[0].replace('/', '-')
+        d = '-'.join([i if len(i) > 1 else '0' + i for i in d.split('-')])
+        h = s[0] if len(s[0]) == 2 else '0' + s[0]
+        m = s[1]
+        s = '00000'
+        new_time = d + ' ' + h + ':' + m + ':00.00000'
+        return new_time
 
 
 class TimeAxisItem(pg.AxisItem):

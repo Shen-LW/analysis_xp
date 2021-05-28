@@ -3,7 +3,7 @@ import datetime
 import pyqtgraph as pg
 from pyqtgraph import Point
 import numpy as np
-from pyqtgraph.Qt import QtGui, QtCore
+from pyqtgraph.Qt import QtGui, QtCore, QT_LIB
 
 
 class MyPlotWidget(pg.PlotWidget):
@@ -19,7 +19,6 @@ class MyPlotWidget(pg.PlotWidget):
     vLine = None
     hLine = None
     undo_base_point_list = None
-
 
     def mousePressEvent(self, ev):
         if self.is_manual_edit:
@@ -116,6 +115,7 @@ class MyPlotWidget(pg.PlotWidget):
 
                 self.translate(tr[0], tr[1])
                 self.sigDeviceRangeChanged.emit(self, self.range)
+
 
     def updata_position(self, x, y):
         self.vLine.setPos(x)
