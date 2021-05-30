@@ -9,6 +9,7 @@ from pyqtgraph.Qt import QtGui, QtCore, QT_LIB
 class MyPlotWidget(pg.PlotWidget):
     is_manual_edit = False
     is_rate_edit = False
+    is_zoom_edit = False
     select_status = False
     x = 0
     y = 0
@@ -21,7 +22,7 @@ class MyPlotWidget(pg.PlotWidget):
     undo_base_point_list = None
 
     def mousePressEvent(self, ev):
-        if self.is_manual_edit:
+        if self.is_manual_edit or self.is_zoom_edit:
             self.select_status = True
             point = self.plotItem.vb.mapSceneToView(ev.pos())
             self.x = point.x()
@@ -50,7 +51,7 @@ class MyPlotWidget(pg.PlotWidget):
             return  ## Everything below disabled for now..
 
     def mouseReleaseEvent(self, ev):
-        if self.is_manual_edit:
+        if self.is_manual_edit or self.is_zoom_edit:
             self.select_status = False
             pos = self.region.pos()
             size = self.region.size()
@@ -81,7 +82,7 @@ class MyPlotWidget(pg.PlotWidget):
         if self.position_lable:
             point = self.plotItem.vb.mapSceneToView(ev.pos())
             self.updata_position(point.x(), point.y())
-        if self.is_manual_edit and self.select_status:
+        if (self.is_manual_edit or self.is_zoom_edit) and self.select_status :
             point = self.plotItem.vb.mapSceneToView(ev.pos())
             # 注意反向的问题
             w = point.x() - self.x

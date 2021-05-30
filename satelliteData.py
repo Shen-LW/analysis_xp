@@ -186,10 +186,19 @@ class SatelliteData:
                 progress.setValue(50)
                 progress.show()
                 QApplication.processEvents()
-                lines = f.readlines()
-                for item in lines:
-                    key, value = item.replace('\n', '').split('||')
-                    star_data[key] = float(value)
+                while line:
+                    line = f.readline()
+                    line = line.replace('\n', '')
+                    if line == '':
+                        continue
+                    key, value = line.split('||')
+                    value = float(value)
+                    if key < start_time:
+                        continue
+                    elif key > end_time:
+                        break
+                    else:
+                        star_data[key] = float(value)
             else:
                 min_point = None
                 max_point = None
@@ -202,7 +211,11 @@ class SatelliteData:
                         continue
                     key, value = line.split('||')
                     value = float(value)
-                    if key < next_time:
+                    if key < start_time:
+                        continue
+                    elif next_time > end_time:
+                        break
+                    elif key < next_time:
                         if min_point is None:
                             min_point = [key, value]
                         else:

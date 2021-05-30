@@ -50,14 +50,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.undo_list = []  # undo队列
         self.undo_base_point_list = []  # 变化率剔野基准点undo队列
         self.setupUi(self)
-        self.bing_signal()
+        self.binding_signal()
         self.extar_control()
         self.create_dir(['tmp/image', 'tmp/data', 'source'])
         self.config = Settings()
         self.init_style()
         self.progress = MyProgress()
 
-    def bing_signal(self):
+    def binding_signal(self):
         self.upload_excel_btn.clicked.connect(self.choose_excel)
         self.crawl_btn.clicked.connect(self.crawl)
         self.report_docx_btn.clicked.connect(self.report_excel)
@@ -587,7 +587,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.hidden_frame(tab_type)
 
     def select_range(self):
-        if self.zoom_in_btn.isEnabled():
+        if self.r_pw.is_zoom_edit:
+            self.r_pw.is_zoom_edit = False
             self.select_range_btn.setStyleSheet(
                 'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
             self.zoom_in_btn.setEnabled(False)
@@ -596,6 +597,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.zoom_out_btn.setEnabled(False)
             self.zoom_out_btn.setStyleSheet(
                 'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+            self.r_pw.removeItem(self.region)
+            self.region.setSize([0, 0], [0, 0])
+            self.r_pw.roi_range = None
 
             if self.r_pw.is_manual_edit:
                 self.edit_model(Qt.Key_M)
@@ -603,10 +607,28 @@ class UiTest(QMainWindow, Ui_MainWindow):
             elif self.r_pw.is_rate_edit:
                 self.edit_model(Qt.Key_R)
                 self.edit_model(Qt.Key_R)
+            else:
+                self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                self.rate_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+
+                self.undo_base_btn.setEnabled(False)
+                self.undo_base_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.delete_btn.setEnabled(False)
+                self.delete_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.undo_btn.setEnabled(False)
+                self.undo_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                self.save_change_btn.setEnabled(False)
+                self.save_change_btn.setStyleSheet(
+                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
 
             self.manual_btn.setEnabled(True)
             self.rate_btn.setEnabled(True)
         else:
+            self.r_pw.is_zoom_edit = True
+            range = self.region
             self.select_range_btn.setStyleSheet(
                 'background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
             self.zoom_in_btn.setEnabled(True)
@@ -615,6 +637,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.zoom_out_btn.setEnabled(True)
             self.zoom_out_btn.setStyleSheet(
                 'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+            self.r_pw.addItem(self.region, ignoreBounds=True)
 
             # 下面按钮栏全部禁用
             self.manual_btn.setEnabled(False)
@@ -640,10 +663,100 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.r_pw.region.setSize([0, 0])
 
     def zoom_in(self):
-        pass
+        # 根据选择区域放大页面
+        select_range = self.r_pw.roi_range
+        if select_range is None:
+            return
+
+        left_time = self.timestamp2timestr(select_range[0])
+        right_time = self.timestamp2timestr(select_range[2])
+
+        if left_time < self.manual_item.dataHead['start_time']:
+            left_time = self.manual_item.dataHead['start_time']
+        if right_time > self.manual_item.dataHead['end_time']:
+            right_time = self.manual_item.dataHead['end_time']
+
+
+        # 重新抽样
+        self.region.setSize([0, 0], [0, 0])
+        self.r_pw.roi_range = None
+        self.manual_item.resampling(left_time, right_time, self.progress)
+
+        l_x, l_y = self.get_choice_data_xy(self.manual_item.star_data)
+        # r_x, r_y = self.get_choice_data_xy()
+        # todo 原始数据和修改数据分开加载
+        r_x = l_x
+        r_y = l_y
+        if self.l_plot_data == None:
+            self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
+            self.r_plot_data = self.r_pw.plot(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
+        else:
+            self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
+            self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
+
+        self.r_pw
+
+
 
     def zoom_out(self):
-        pass
+        # 默认缩放倍率为50
+        scale = 0.5
+        select_range = self.r_pw.roi_range
+        star_data_list = list(self.manual_item.star_data.keys())
+        left_stamp = self.timestr2timestamp(star_data_list[0])
+        right_stamp = self.timestr2timestamp(star_data_list[-1])
+        distance = (right_stamp - left_stamp) * (scale / 2)
+        # 缩放50%
+        left_time = self.timestamp2timestr(left_stamp - distance)
+        right_time = self.timestamp2timestr(right_stamp + distance)
+
+
+        # if select_range is None:
+        #     # 如果选择区域为0，中心为区间中心
+        #     left_stamp = self.timestr2timestamp(star_data_list[0])
+        #     right_stamp = self.timestr2timestamp(star_data_list[-1])
+        #     distance = (right_stamp - left_stamp) * (scale / 2)
+        #     # 缩放50%
+        #     left_time = self.timestamp2timestr(left_stamp - distance)
+        #     right_time = self.timestamp2timestr(right_stamp + distance)
+        # else:
+        #     # todo 可以考虑优化缩小的算法
+        #     # 如果选择区域，中心点为选择区域中心
+        #     left_stamp = select_range[0]
+        #     right_stamp = select_range[2]
+        #     left_time = self.timestamp2timestr()
+        #     right_time = self.timestamp2timestr()
+
+
+
+        if left_time < self.manual_item.dataHead['start_time']:
+            left_time = self.manual_item.dataHead['start_time']
+        if right_time > self.manual_item.dataHead['end_time']:
+            right_time = self.manual_item.dataHead['end_time']
+
+        # 重新抽样
+        self.region.setSize([0, 0], [0, 0])
+        self.r_pw.roi_range = None
+
+        self.manual_item.resampling(left_time, right_time, self.progress)
+
+        l_x, l_y = self.get_choice_data_xy(self.manual_item.star_data)
+        # r_x, r_y = self.get_choice_data_xy()
+        # todo 原始数据和修改数据分开加载
+        r_x = l_x
+        r_y = l_y
+        if self.l_plot_data == None:
+            self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
+            self.r_plot_data = self.r_pw.plot(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
+        else:
+            self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
+            self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
+
+
+
+
+
+
 
     def edit_model(self, key):
         if key == Qt.Key_M:
@@ -1386,6 +1499,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
         datetime_obj = datetime.datetime.strptime(timestr, "%Y-%m-%d %H:%M:%S.%f")
         ret_stamp = int(time.mktime(datetime_obj.timetuple()) * 1000.0 + datetime_obj.microsecond / 1000.0)
         return ret_stamp / 1000
+
+
+    def timestamp2timestr(self, timestamp):
+        # 1602741526.7983296
+        datetime_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+        return datetime_str + '.000000'
+
 
     def trans_data_time(self, time_str):
         '''

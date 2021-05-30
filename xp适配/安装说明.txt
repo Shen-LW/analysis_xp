@@ -12,7 +12,7 @@ pip install -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
 5、将Pyinstaller压缩包拷贝到Python安装目录中的Scripts中（例如：C:\Python34\Scripts\）进行解压，进入解压出来的文件目录中，执行命令：python setup.py install 完成安装。
 
 6、打包说明
-    1. 使用 pyinstaller -D ui.py -w
+    1. 使用 C:\Python34\Scripts\pyinstaller.exe -D ui.py -w
     2. 将analysis_exe目录下的platforms文件夹拷贝到ui.exe所在目录
     3. （可选）使用Enigma Virtual Box.exe这个文件夹里的文件进行重新打包。
         参考链接：https://blog.csdn.net/tqlisno1/article/details/108951702?utm_medium=distribute.pc_relevant_t0.none-task-blog-BlogCommendFromMachineLearnPai2-1.channel_param&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-BlogCommendFromMachineLearnPai2-1.channel_param 
