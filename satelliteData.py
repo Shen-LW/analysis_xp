@@ -1,5 +1,6 @@
 import os
 import datetime
+import time
 import collections
 
 from PyQt5.QtWidgets import QApplication
@@ -28,7 +29,12 @@ class SatelliteData:
         'start_time': None,
         'end_time': None
     }
+    star_cache_data = []
     star_data = []
+    # 用于撤销的临时文件存储, item为file_path
+    cache_list = []
+    is_undo = False
+
 
     def __init__(self, file_path: str, dataHead: dict):
         '''
@@ -88,19 +94,7 @@ class SatelliteData:
             lines = [k + '||' + str(v) + '\n' for k, v in data.items()]
             f.writelines(lines)
 
-    def rename_extension(self):
-        '''
-        完成后修改文件名结尾
-        :return:
-        '''
-        filename, file_extension = os.path.splitext(self.file_path)
-        new_filename = filename + '.sDAT'
-        #  如果文件存在，则删除
-        if os.path.isfile(new_filename):
-            os.remove(new_filename)
-        os.rename(self.file_path, new_filename)
-        self.file_path = new_filename
-        self.dataHead['status'] = '读取成功'
+
 
     def _get_next_time(self, start_time, sampling_grade):
         '''
@@ -129,15 +123,21 @@ class SatelliteData:
         next_time = (start_datetime + offset).strftime('%Y-%m-%d %H:%M:%S.%f')
         return next_time
 
-    def resampling(self, start_time, end_time, progress):
+    def resampling(self, start_time, end_time, progress, cache = None):
         '''
         对数据进行重新采样
         :param start_time:
         :param end_time:
         :return:
         '''
+        if cache:
+            resampling_file_path = cache['file_path']
+            content = '---缓存数据加载中---'
+        else:
+            resampling_file_path = self.file_path
+            content = '---原始数据加载中---'
 
-        progress.setContent("进度", "数据加载中---")
+        progress.setContent("进度", content)
         progress.setValue(1)
         progress.show()
         QApplication.processEvents()
@@ -179,7 +179,7 @@ class SatelliteData:
 
         star_data = collections.OrderedDict()
         try:
-            f = open(self.file_path, 'r', encoding='utf-8')
+            f = open(resampling_file_path, 'r', encoding='utf-8')
             line = f.readline()  # 跳过head行
             next_time = self._get_next_time(start_time, sampling_grade)
             if next_time is None:  # None表示不抽样
@@ -241,7 +241,128 @@ class SatelliteData:
                         progress_index = progress_index + 1
         finally:
             f.close()
-        self.star_data = star_data
+        if cache:
+            self.star_cache_data = star_data
+        else:
+            self.star_data = star_data
         progress.setValue(100)
         progress.hide()
-        return star_data
+
+
+    def manual_choice(self, left_time, right_time, min_value, max_value, progress):
+        '''
+        手动剔野，并保存缓存文件
+        :param left_time: 起始时间
+        :param right_time: 结束时间
+        :param min_value: 最小值
+        :param max_value: 最大值
+        :param progress: 进度条
+        :return:
+        '''
+
+        progress.setContent("进度", '手动剔野中---')
+        progress.setValue(1)
+        progress.show()
+        QApplication.processEvents()
+
+        if self.cache_list:
+            choice_file = self.cache_list[-1]['file_path']
+        else:
+            choice_file = self.file_path
+
+        filename, file_extension = os.path.splitext(os.path.basename(choice_file))
+        new_cache_file = 'tmp/cache/' + filename + '_' + str(len(self.cache_list)) + '.cache'
+        try:
+            source_f = open(choice_file, 'r', encoding='utf-8')
+            new_cache_f = open(new_cache_file, 'w', encoding='utf-8')
+
+            line = source_f.readline()  # 跳过head行
+            new_cache_f.write(line)
+
+            progress_index = 0
+            progress_number = self._bufcount(choice_file) - 1
+            cache_lines = []  # 满10000行再开始写入，加快速度
+            while line:
+                source_line = source_f.readline()
+                line = source_line.replace('\n', '')
+                if line == '':
+                    continue
+                key, value = line.split('||')
+                value = float(value)
+                if key >= left_time and key <= right_time and value >= min_value and value <= max_value:
+                    continue
+                else:
+                    cache_lines.append(source_line)
+                if len(cache_lines) > 10000:
+                    new_cache_f.writelines(cache_lines)
+                    new_cache_f.flush()
+                    cache_lines.clear()
+                    # del cache_lines
+                    progress.setValue((progress_index / progress_number) * 100)
+                    progress.show()
+                    QApplication.processEvents()
+                    progress_index = progress_index + 10000
+
+            star_data_list = list(self.star_data.keys())
+            self.cache_list.append({'file_path': new_cache_file,
+                                    'start_time': star_data_list[0],
+                                    'end_time': star_data_list[-1]})
+            self.is_undo = False
+        finally:
+            source_f.close()
+            new_cache_f.close()
+
+        progress.setValue(100)
+        progress.hide()
+
+
+    def rename_extension(self):
+        '''
+        完成后修改文件名结尾
+        :return:
+        '''
+        filename, file_extension = os.path.splitext(self.file_path)
+        new_filename = filename + '.sDAT'
+        #  如果文件存在，则删除
+        if os.path.isfile(new_filename):
+            os.remove(new_filename)
+        os.rename(self.file_path, new_filename)
+        self.file_path = new_filename
+        self.dataHead['status'] = '读取成功'
+
+
+    def undo_cache(self):
+        if self.is_undo:
+            return self.cache_list.pop()
+        else:
+            self.is_undo = True
+            curr_cache = self.cache_list.pop()
+            if os.path.exists(curr_cache['file_path']):
+                os.remove(curr_cache['file_path'])
+            return self.cache_list.pop()
+
+
+    def clear_cache_file(self):
+        '''
+        缓冲的方式获取总行数
+        :return:
+        '''
+        for item in self.cache_list:
+            filename = item['file_path']
+            if os.path.exists(filename):
+                os.remove(filename)
+        self.cache_list = []
+
+    def _bufcount(self, filename):
+        f = open(filename, encoding='utf-8')
+        lines = 0
+        buf_size = 1024 * 1024
+        read_f = f.read  # loop optimization
+
+        buf = read_f(buf_size)
+        while buf:
+            lines += buf.count('\n')
+            buf = read_f(buf_size)
+
+        return lines
+

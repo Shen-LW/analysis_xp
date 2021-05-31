@@ -792,12 +792,12 @@ font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
       <property name="frameShadow">
        <enum>QFrame::Raised</enum>
       </property>
-      <widget class="QLabel" name="lable_10">
+      <widget class="QLabel" name="manual_lable">
        <property name="geometry">
         <rect>
          <x>20</x>
          <y>20</y>
-         <width>101</width>
+         <width>561</width>
          <height>31</height>
         </rect>
        </property>
@@ -849,7 +849,7 @@ border:0px;</string>
         <rect>
          <x>440</x>
          <y>10</y>
-         <width>501</width>
+         <width>531</width>
          <height>31</height>
         </rect>
        </property>

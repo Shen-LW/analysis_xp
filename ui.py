@@ -42,8 +42,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.region = pg.RectROI([0, 0], [0, 0], pen=pg.mkPen('g', width=1))  # 框选
         self.excel_data = []  # 所有excel爬取的数据, 修改记录在这里
         self.crawl_status = False
-        self.manual_item = {}  # 当前操作的数据
-        self.choice_data = []  # 剔野暂存数据
+        self.manual_item = None  # 当前操作的数据
         self.select_indexs = []  # 自动剔野选择行数组
         self.l_plot_data = None  # 左侧绘图数据
         self.r_plot_data = None  # 右侧绘图数据
@@ -52,7 +51,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.binding_signal()
         self.extar_control()
-        self.create_dir(['tmp/image', 'tmp/data', 'source'])
+        self.create_dir(['tmp/image', 'tmp/data', 'tmp/cache', 'source'])
         self.config = Settings()
         self.init_style()
         self.progress = MyProgress()
@@ -147,7 +146,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.choice_btn.setStyleSheet(style_2)
 
         elif tab == 'choice':
-            if not self.manual_item:
+            if self.manual_item is None:
                 message_box = MyMessageBox()
                 message_box.setContent("暂无数据", "请先选择要填充的数据")
                 message_box.exec_()
@@ -179,10 +178,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def reset_data(self):
         # 重置软件数据状态
-        self.raw_data = []  # 爬取的原始数据
         self.excel_data = []  # 所有excel爬取的数据, 修改记录在这里
-        self.manual_item = {}  # 当前操作的数据
-        self.choice_data = []  # 剔野暂存数据
+        self.manual_item = None  # 当前操作的数据
         self.select_indexs = []  # 自动剔野选择行数组
         self.undo_list = []  # undo列表
         if self.l_plot_data:
@@ -506,18 +503,19 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
 
-        data = satellite_data.resampling(satellite_data.dataHead['start_time'], satellite_data.dataHead['end_time'],
-                                         self.progress)
+        satellite_data.resampling(satellite_data.dataHead['start_time'], satellite_data.dataHead['end_time'],
+                                  self.progress)
         if self.manual_item.star_data == [] or self.manual_item.star_data is None:
             message_box = MyMessageBox()
             message_box.setContent("获取失败", "请检查数据后重新读取")
             message_box.exec_()
             return
-        self.choice_data = copy.deepcopy(self.manual_item.star_data)
-        self.undo_list = []
+
         # 传递到手动剔野页面,更新数据
         l_x, l_y = self.get_choice_data_xy(self.manual_item.star_data)
-        r_x, r_y = self.get_choice_data_xy()
+        # 初次加载，采用同样的数据
+        r_x = l_x
+        r_y = l_y
         if self.l_plot_data == None:
             self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
             self.r_plot_data = self.r_pw.plot(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
@@ -531,6 +529,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_pw.reset_rate_edit()
         self.r_pw.is_manual_edit = False
         self.r_pw.is_rate_edit = False
+        self.manual_lable.setText(self.manual_item.dataHead['telemetry_num'] + '-手动剔野')
 
         # 放大与缩小
         self.zoom_in_btn.setEnabled(False)
@@ -557,19 +556,20 @@ class UiTest(QMainWindow, Ui_MainWindow):
             'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
 
     def select_row(self, r):
-        if self.raw_data[r]['data'] == [] or self.raw_data[r]['data'] is None:
-            message_box = MyMessageBox()
-            message_box.setContent("获取失败", "请检查数据后重新读取")
-            message_box.exec_()
-            object_name = str(r) + '_select'
-            checkbox = self.findChild(QCheckBox, object_name)
-            checkbox.setChecked(False)
-            self.select_indexs = self.get_select_indexs()
+        pass
+        # if self.raw_data[r]['data'] == [] or self.raw_data[r]['data'] is None:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("获取失败", "请检查数据后重新读取")
+        #     message_box.exec_()
+        #     object_name = str(r) + '_select'
+        #     checkbox = self.findChild(QCheckBox, object_name)
+        #     checkbox.setChecked(False)
+        #     self.select_indexs = self.get_select_indexs()
 
     def get_select_indexs(self):
         # 获取当前勾选状态，0：未选中，2 已选中
         select_indexs = []
-        number = len(self.raw_data)
+        number = len(self.excel_data)
         for i in range(number):
             object_name = str(i) + '_select'
             checkbox = self.findChild(QCheckBox, object_name)
@@ -676,17 +676,16 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if right_time > self.manual_item.dataHead['end_time']:
             right_time = self.manual_item.dataHead['end_time']
 
-
         # 重新抽样
-        self.region.setSize([0, 0], [0, 0])
-        self.r_pw.roi_range = None
         self.manual_item.resampling(left_time, right_time, self.progress)
-
         l_x, l_y = self.get_choice_data_xy(self.manual_item.star_data)
-        # r_x, r_y = self.get_choice_data_xy()
-        # todo 原始数据和修改数据分开加载
-        r_x = l_x
-        r_y = l_y
+        if self.manual_item.cache_list:
+            # 针对缓存文件采样
+            self.manual_item.resampling(left_time, right_time, self.progress, self.manual_item.cache_list[-1])
+            r_x, r_y = self.get_choice_data_xy(self.manual_item.star_cache_data)
+        else:
+            r_x = l_x
+            r_y = l_y
         if self.l_plot_data == None:
             self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
             self.r_plot_data = self.r_pw.plot(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
@@ -694,13 +693,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
             self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
 
-        self.r_pw
-
-
+        # 重置状态
+        self.region.setSize([0, 0], [0, 0])
+        self.r_pw.roi_range = None
+        self.r_pw.autoRange()
+        self.l_pw.autoRange()
 
     def zoom_out(self):
-        # 默认缩放倍率为50
-        scale = 0.5
+        # 默认缩放倍率为1
+        scale = 1
         select_range = self.r_pw.roi_range
         star_data_list = list(self.manual_item.star_data.keys())
         left_stamp = self.timestr2timestamp(star_data_list[0])
@@ -709,7 +710,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 缩放50%
         left_time = self.timestamp2timestr(left_stamp - distance)
         right_time = self.timestamp2timestr(right_stamp + distance)
-
 
         # if select_range is None:
         #     # 如果选择区域为0，中心为区间中心
@@ -720,14 +720,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
         #     left_time = self.timestamp2timestr(left_stamp - distance)
         #     right_time = self.timestamp2timestr(right_stamp + distance)
         # else:
-        #     # todo 可以考虑优化缩小的算法
+        #     # todo 可以考虑优化缩小逻辑
         #     # 如果选择区域，中心点为选择区域中心
         #     left_stamp = select_range[0]
         #     right_stamp = select_range[2]
         #     left_time = self.timestamp2timestr()
         #     right_time = self.timestamp2timestr()
-
-
 
         if left_time < self.manual_item.dataHead['start_time']:
             left_time = self.manual_item.dataHead['start_time']
@@ -735,16 +733,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
             right_time = self.manual_item.dataHead['end_time']
 
         # 重新抽样
-        self.region.setSize([0, 0], [0, 0])
-        self.r_pw.roi_range = None
-
         self.manual_item.resampling(left_time, right_time, self.progress)
-
         l_x, l_y = self.get_choice_data_xy(self.manual_item.star_data)
-        # r_x, r_y = self.get_choice_data_xy()
-        # todo 原始数据和修改数据分开加载
-        r_x = l_x
-        r_y = l_y
+        if self.manual_item.cache_list:
+            # 针对缓存文件采样
+            self.manual_item.resampling(left_time, right_time, self.progress, self.manual_item.cache_list[-1])
+            r_x, r_y = self.get_choice_data_xy(self.manual_item.star_cache_data)
+        else:
+            r_x = l_x
+            r_y = l_y
         if self.l_plot_data == None:
             self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
             self.r_plot_data = self.r_pw.plot(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
@@ -752,11 +749,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
             self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
 
-
-
-
-
-
+        # 重置状态
+        self.region.setSize([0, 0], [0, 0])
+        self.r_pw.roi_range = None
+        self.r_pw.autoRange()
+        self.l_pw.autoRange()
 
     def edit_model(self, key):
         if key == Qt.Key_M:
@@ -841,14 +838,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
         elif key == Qt.Key_S:
             self.select_range()
 
-    def get_choice_data_xy(self, raw_data=None):
-        if raw_data == None:
-            data = self.choice_data
-        else:
-            data = raw_data
+    def get_choice_data_xy(self, star_data):
         x = []
         y = []
-        for k, v in data.items():
+        for k, v in star_data.items():
             x.append(self.timestr2timestamp(k))
             y.append(float(v))
         return x, y
@@ -860,16 +853,25 @@ class UiTest(QMainWindow, Ui_MainWindow):
             select_range = self.r_pw.roi_range
             if select_range is None:
                 return
-            undo_data = copy.deepcopy(self.choice_data)
-            self.undo_list.append(undo_data)
-            # 修改数据
-            for time_str, v in self.choice_data.items():
-                # 时间判断
-                f = self.timestr2timestamp(time_str)
-                if f >= select_range[0] and f <= select_range[2]:
-                    if v > select_range[1] and v < select_range[3]:
-                        self.choice_data[time_str] = 0
-            x, y = self.get_choice_data_xy()
+
+            left_time = self.timestamp2timestr(select_range[0])
+            right_time = self.timestamp2timestr(select_range[2])
+            if left_time < self.manual_item.dataHead['start_time']:
+                left_time = self.manual_item.dataHead['start_time']
+            if right_time > self.manual_item.dataHead['end_time']:
+                right_time = self.manual_item.dataHead['end_time']
+
+            self.manual_item.manual_choice(left_time, right_time, float(select_range[1]), float(select_range[3]), self.progress)
+            # 对缓存数据重新采样
+
+            star_data_list = list(self.manual_item.star_data.keys())
+            left_stamp = self.timestr2timestamp(star_data_list[0])
+            right_stamp = self.timestr2timestamp(star_data_list[-1])
+            # 当前区间
+            curr_left_time = self.timestamp2timestr(left_stamp)
+            curr_right_time = self.timestamp2timestr(right_stamp)
+            self.manual_item.resampling(curr_left_time, curr_right_time, self.progress, self.manual_item.cache_list[-1])
+            x, y = self.get_choice_data_xy(self.manual_item.star_cache_data)
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
         elif self.r_pw.is_rate_edit:  # 变化率剔野
             undo_data = copy.deepcopy(self.choice_data)
@@ -881,11 +883,39 @@ class UiTest(QMainWindow, Ui_MainWindow):
             x, y = self.get_choice_data_xy()
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
+        # 重置状态
+        self.region.setSize([0, 0], [0, 0])
+        self.r_pw.roi_range = None
+        self.r_pw.autoRange()
+        self.l_pw.autoRange()
+
     def delete_undo(self):
-        if self.undo_list:
-            self.choice_data = self.undo_list.pop()
-            x, y = self.get_choice_data_xy()
-            self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
+        if self.manual_item.cache_list:
+
+            cache = self.manual_item.undo_cache()
+            # 重新抽样
+            self.manual_item.resampling(cache['start_time'], cache['end_time'], self.progress)
+            l_x, l_y = self.get_choice_data_xy(self.manual_item.star_data)
+            self.manual_item.resampling(cache['start_time'], cache['end_time'], self.progress, cache)
+            r_x, r_y = self.get_choice_data_xy(self.manual_item.star_cache_data)
+            if self.l_plot_data == None:
+                self.l_plot_data = self.l_pw.plot(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))  # 在绘图控件中绘制图形
+                self.r_plot_data = self.r_pw.plot(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
+            else:
+                self.l_plot_data.setData(x=l_x, y=l_y, pen=pg.mkPen('g', width=1))
+                self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
+            if os.path.exists(cache['file_path']):
+                os.remove(cache['file_path'])
+        else:
+            r_x, r_y = self.get_choice_data_xy(self.manual_item.star_data)
+            self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
+
+        # 重置状态
+        self.region.setSize([0, 0], [0, 0])
+        self.r_pw.roi_range = None
+        self.r_pw.autoRange()
+        self.l_pw.autoRange()
+
 
     def rate_choice(self, base_point, normal_rate):
         if not base_point:
@@ -1057,11 +1087,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
             QApplication.processEvents()
 
     def select_all(self):
-        number = len(self.raw_data)
+        number = len(self.excel_data)
         if self.select_all_btn.text() == '全选':
             for i in range(number):
-                if self.raw_data[i]['data'] == [] or self.raw_data[i]['data'] is None:
-                    continue
+                # if self.raw_data[i]['data'] == [] or self.raw_data[i]['data'] is None:
+                #     continue
                 object_name = str(i) + '_select'
                 checkbox = self.findChild(QCheckBox, object_name)
                 checkbox.setChecked(True)
@@ -1137,7 +1167,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def change_auto_choice_index(self, curr_index=None):
         if not curr_index:
             curr_index = self.auto_choices_cbbox.currentIndex()
-        number = len(self.raw_data)
+        number = len(self.excel_data)
         # 清除原有选择
         for i in range(number):
             object_name = str(i) + '_select'
@@ -1149,8 +1179,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         choice_lists.insert(0, [])
         for item in choice_lists[curr_index]:
             if item < number:
-                if self.raw_data[item]['data'] == [] or self.raw_data[item]['data'] is None:
-                    continue
+                # if self.raw_data[item]['data'] == [] or self.raw_data[item]['data'] is None:
+                #     continue
                 object_name = str(item) + '_select'
                 checkbox = self.findChild(QCheckBox, object_name)
                 checkbox.setChecked(True)
@@ -1500,12 +1530,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
         ret_stamp = int(time.mktime(datetime_obj.timetuple()) * 1000.0 + datetime_obj.microsecond / 1000.0)
         return ret_stamp / 1000
 
-
     def timestamp2timestr(self, timestamp):
         # 1602741526.7983296
         datetime_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
         return datetime_str + '.000000'
-
 
     def trans_data_time(self, time_str):
         '''
