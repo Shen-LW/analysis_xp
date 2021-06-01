@@ -192,9 +192,10 @@ def create_test_timedata(start_time_str, end_time_str, min_value, max_value):
     # print((end_time - start_time).total_seconds())
     for i in range(int((end_time - start_time).total_seconds())):
         tmp = start_time + datetime.timedelta(seconds=i)
+        value = random.randint(int(min_value * 100), int(max_value * 100)) / 100
         item.append({
             "T0": str(tmp),
-            "V02317575": random.randint(int(min_value * 100), int(max_value * 100)) / 100
+            "V02317575": str(value) + '0' * (16 - len(str(value)))
         })
 
     return item
@@ -234,7 +235,8 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
             items = create_test_timedata(start_time_str, end_time_str, min_value, max_value)
             # 增加一个随机噪声
             index = random.randint(0, 599)
-            items[index]["V02317575"] = items[index]["V02317575"] * 2
+            n_v = float(items[index]["V02317575"]) * 2
+            items[index]["V02317575"] = str(n_v) + '0' * (16 - len(str(n_v)))
             items = parse_data(items)
             items_keys = [k for k in items.keys()]
             for i in range(0, len(items_keys), 10000):
@@ -251,7 +253,8 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
             items = create_test_timedata(start_time_str, end_time_str, min_value, max_value)
             # 增加一个随机噪声
             index = random.randint(0, 599)
-            items[index]["V02317575"] = items[index]["V02317575"] * 2
+            n_v = float(items[index]["V02317575"]) + 3
+            items[index]["V02317575"] = str(n_v) + '0' * (16 - len(str(n_v)))
             items = parse_data(items)
             items_keys = [k for k in items.keys()]
             for i in range(0, len(items_keys), 10000):

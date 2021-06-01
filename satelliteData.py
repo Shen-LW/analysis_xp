@@ -1,5 +1,6 @@
 import os
 import datetime
+import math
 import time
 import collections
 
@@ -56,7 +57,7 @@ class SatelliteData:
         :return:
         '''
         self.dataHead['status'] = '爬取成功'
-        with open(self.file_path, 'w', encoding='utf-8') as f:
+        with open(self.file_path, 'w', encoding='gbk') as f:
             head = str(self.dataHead['status']) + '||' + str(self.dataHead['telemetry_name']) + '||' + str(
                 self.dataHead['telemetry_num']) + '||' + str(self.dataHead['normal_range']) + '||' + str(
                 self.dataHead['telemetry_source']) + '||' + str(self.dataHead['img_num']) + '||' + str(
@@ -71,15 +72,28 @@ class SatelliteData:
         从文件中加载数据
         :return:
         '''
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='gbk') as f:
             head = f.readline()
             head = head.replace('\n', '')
-            self.dataHead['status'], self.dataHead['telemetry_name'], self.dataHead['telemetry_num'], self.dataHead[
-                'normal_range'], self.dataHead['telemetry_source'], self.dataHead['img_num'], self.dataHead[
-                'table_num'], self.dataHead['params_one'], self.dataHead['params_two'], self.dataHead['params_three'], \
-            self.dataHead['params_four'], self.dataHead['start_time'], self.dataHead['end_time'] = head.split('||')
-            self.dataHead['table_num'] = float(self.dataHead['table_num'])
-            self.dataHead['params_three'] = float(self.dataHead['params_three'])
+            status, telemetry_name, telemetry_num, normal_range, telemetry_source, img_num, table_num, params_one, params_two, params_three, params_four, start_time, end_time = head.split('||')
+            table_num = float(table_num)
+            dataHead = {
+                "status": status,
+                'telemetry_name': telemetry_name,
+                'telemetry_num': telemetry_num,
+                'normal_range': normal_range,
+                'telemetry_source': telemetry_source,
+                'img_num': img_num,
+                'table_num': table_num,
+                'params_one': params_one,
+                'params_two': params_two,
+                'params_three': params_three,
+                "params_four": params_four,
+                'start_time': start_time,
+                'end_time': end_time
+            }
+
+            self.dataHead = dataHead
 
     def add_data(self, data):
         '''
@@ -90,9 +104,20 @@ class SatelliteData:
         if not self.is_write_dataHead:
             self.write_dataHead()
             self.is_write_dataHead = True
-        with open(self.file_path, 'a', encoding='utf-8') as f:
+        with open(self.file_path, 'a', encoding='gbk') as f:
             lines = [k + '||' + str(v) + '\n' for k, v in data.items()]
             f.writelines(lines)
+
+
+    def read_line(self, f, whence, line_index):
+        f.seek(line_index * 46 + whence)
+        line = f.readline()
+        line = line.replace('\n', '')
+        if line == '':
+            return None, None
+        key, value = line.split('||')
+        value = float(value)
+        return key, value
 
 
 
@@ -179,7 +204,7 @@ class SatelliteData:
 
         star_data = collections.OrderedDict()
         try:
-            f = open(resampling_file_path, 'r', encoding='utf-8')
+            f = open(resampling_file_path, 'r', encoding='gbk')
             line = f.readline()  # 跳过head行
             next_time = self._get_next_time(start_time, sampling_grade)
             if next_time is None:  # None表示不抽样
@@ -273,14 +298,14 @@ class SatelliteData:
         filename, file_extension = os.path.splitext(os.path.basename(choice_file))
         new_cache_file = 'tmp/cache/' + filename + '_' + str(len(self.cache_list)) + '.cache'
         try:
-            source_f = open(choice_file, 'r', encoding='utf-8')
-            new_cache_f = open(new_cache_file, 'w', encoding='utf-8')
+            source_f = open(choice_file, 'r', encoding='gbk')
+            new_cache_f = open(new_cache_file, 'w', encoding='gbk')
 
             line = source_f.readline()  # 跳过head行
             new_cache_f.write(line)
 
             progress_index = 0
-            progress_number = self._bufcount(choice_file) - 1
+            progress_number = self.bufcount(choice_file) - 1
             cache_lines = []  # 满10000行再开始写入，加快速度
             while line:
                 source_line = source_f.readline()
@@ -314,6 +339,183 @@ class SatelliteData:
 
         progress.setValue(100)
         progress.hide()
+
+
+
+    def rate_choice(self, base_point, normal_rate):
+        # 获取基准点对应的时间, 统一取右边值
+        # 如果数据点太多的话，可以考虑用二叉搜索或者快速搜索
+        if self.cache_list:
+            filename = self.cache_list[-1]['file_path']
+        else:
+            filename = self.file_path
+        point_total = self.bufcount(filename) - 1
+        start_time = datetime.datetime.strptime(self.dataHead['start_time'], "%Y-%m-%d %H:%M:%S.%f")
+        end_time = datetime.datetime.strptime(self.dataHead['end_time'], "%Y-%m-%d %H:%M:%S.%f")
+
+        f = open(filename, 'r', encoding='gbk')
+        f.readline()
+        whence = f.tell()
+
+        base_point = [item for item in base_point if (item >= start_time and item < end_time)]
+        base_point.reverse()
+        correct_base_point = []
+        tmp_point = base_point.pop()
+        tmp_point_str = str(tmp_point)
+
+        for index in range(point_total):
+            line = f.readline()
+            line = line.replace('\n', '')
+            if line == '':
+                continue
+            time_str, v = line.split('||')
+            v = float(v)
+            # time_str, v = self.read_line(f, whence, index)
+            # t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
+            if time_str >= tmp_point_str:
+                t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
+                correct_base_point.append((index, t))
+                if base_point:
+                    tmp_point = base_point.pop()
+                    tmp_point_str = str(tmp_point)
+                else:
+                    break
+
+        # 构建基准点结构数组
+        base_point_struct_list = []
+        for index, t in correct_base_point:
+            base_point_struct_list.append({
+                "left_status": 1,  # 1: 运行剔野， 0: 剔野停止
+                "right_status": 1,
+                "left": index - 1,  # 左边位置指针
+                "right": index + 1,  # 右边位置指针
+                "left_outlier": None,  # 左边野点的最后位置
+                "right_outlier": None,  # 右边野点的最后位置
+                "left_normal": index,  # 左边最后一个正常点
+                "right_normal": index,  # 右边最后一个正常点
+            })
+
+        # 对结构数组进行扩增，避免循环中的越界判断
+        base_point_struct_list.insert(0, {
+            "left_status": 0,
+            "right_status": 0,
+            "left": 0,
+            "right": 0,
+            "left_outlier": None,
+            "right_outlier": None,
+            "left_normal": None,
+            "right_normal": None
+        })
+        base_point_struct_list.append({
+            "left_status": 0,
+            "right_status": 0,
+            "left": point_total,
+            "right": point_total,
+            "left_outlier": None,
+            "right_outlier": None,
+            "left_normal": None,
+            "right_normal": None
+        })
+
+        # 开始剔野
+        correct_index_list = []  # 需要剔除的野点
+        number = math.ceil(point_total / (len(base_point_struct_list) - 2))  # 外部循环次数，每次对各个基准点处理一次
+        for i in range(number):
+            if i % 10000 == 0:
+                print(i,  ' / ', number)
+            for n in range(1, len(base_point_struct_list) - 1):
+                point_struct = base_point_struct_list[n]
+                before_point_struct = base_point_struct_list[n - 1]
+                after_point_struct = base_point_struct_list[n + 1]
+                # 左右两边分别进行
+                # 左边
+                if point_struct["left_status"]:
+                    if point_struct["left"] < 0:
+                        point_struct["left_status"] = 0
+                    else:
+                        if point_struct["left"] >= before_point_struct['right']:
+                            curr_point = self.read_line(f, whence, point_struct["left"])
+                            left_normal_point = self.read_line(f, whence, point_struct["left_normal"])
+                            # curr_point = tmp_chice_data[point_struct["left"]]
+                            # left_normal_point = tmp_chice_data[point_struct["left_normal"]]
+
+                            # 判断时间是否超过十分钟, 超过则停止该方向剔野
+                            curr_point_time = datetime.datetime.strptime(curr_point[0], "%Y-%m-%d %H:%M:%S.%f")
+                            left_normal_point_time = datetime.datetime.strptime(left_normal_point[0],
+                                                                                "%Y-%m-%d %H:%M:%S.%f")
+                            if (left_normal_point_time - curr_point_time) > datetime.timedelta(seconds=600):
+                                point_struct["left_status"] = 0
+                            # 判断变化率
+                            space = left_normal_point_time - curr_point_time
+                            space_s = space.seconds * 1000000 + space.microseconds
+                            if abs((left_normal_point[1] - curr_point[1]) / (space_s / 1000000)) > abs(normal_rate):
+                                # 野点
+                                correct_index_list.append(point_struct["left"])
+                                # 判断野点数是否超过十分钟, 停止剔野
+                                if point_struct["left_outlier"]:
+                                    befor_outlier_point = self.read_line(f, whence, point_struct["left_outlier"])
+                                    # befor_outlier_point = tmp_chice_data[point_struct["left_outlier"]]
+                                    befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
+                                                                                          "%Y-%m-%d %H:%M:%S.%f")
+                                    if (befor_outlier_point_time - curr_point_time) > datetime.timedelta(seconds=600):
+                                        point_struct["left_status"] = 0
+                                else:
+                                    point_struct["left_outlier"] = point_struct["left"]
+                            else:
+                                # 正常点
+                                point_struct["left_normal"] = point_struct["left"]
+                                point_struct["left_outlier"] = None
+                            point_struct["left"] = point_struct["left"] - 1
+                        else:
+                            point_struct["left_status"] = 0
+
+                # 右边
+                if point_struct["right_status"]:
+                    if point_struct["right"] >= point_total:
+                        point_struct["right_status"] = 0
+                    else:
+                        if point_struct["right"] <= after_point_struct['left']:
+                            curr_point = self.read_line(f, whence, point_struct["right"])
+                            right_normal_point = self.read_line(f, whence, point_struct["right_normal"])
+                            # curr_point = tmp_chice_data[point_struct["right"]]
+                            # right_normal_point = tmp_chice_data[point_struct["right_normal"]]
+
+                            # 判断时间是否超过十分钟, 超过则停止该方向剔野
+                            curr_point_time = datetime.datetime.strptime(curr_point[0], "%Y-%m-%d %H:%M:%S.%f")
+                            right_normal_point_time = datetime.datetime.strptime(right_normal_point[0],
+                                                                                 "%Y-%m-%d %H:%M:%S.%f")
+                            if (curr_point_time - right_normal_point_time) > datetime.timedelta(seconds=600):
+                                point_struct["right_status"] = 0
+                            # 判断变化率
+                            space = curr_point_time - right_normal_point_time
+                            space_s = space.seconds * 1000000 + space.microseconds
+                            if abs((curr_point[1] - right_normal_point[1]) / (space_s / 1000000)) > abs(normal_rate):
+                                # 野点
+                                correct_index_list.append(point_struct["right"])
+                                # 判断野点数是否超过十分钟, 停止剔野
+                                if point_struct["right_outlier"]:
+                                    befor_outlier_point = self.read_line(f, whence, point_struct["right_outlier"])
+                                    # befor_outlier_point = tmp_chice_data[point_struct["right_outlier"]]
+                                    befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
+                                                                                          "%Y-%m-%d %H:%M:%S.%f")
+                                    if (curr_point_time - befor_outlier_point_time) > datetime.timedelta(seconds=600):
+                                        point_struct["right_status"] = 0
+                                else:
+                                    point_struct["right_outlier"] = point_struct["right"]
+                            else:
+                                # 正常点
+                                point_struct["right_normal"] = point_struct["right"]
+                                point_struct["right_outlier"] = None
+                            point_struct["right"] = point_struct["right"] + 1
+                        else:
+                            point_struct["right_status"] = 0
+
+        correct_index_list.sort()
+        print(correct_index_list)
+        # 剔除野点
+        for index in correct_index_list:
+            time_str = tmp_chice_data[index][0]
+            self.choice_data[time_str] = 0
 
 
     def rename_extension(self):
@@ -353,8 +555,8 @@ class SatelliteData:
                 os.remove(filename)
         self.cache_list = []
 
-    def _bufcount(self, filename):
-        f = open(filename, encoding='utf-8')
+    def bufcount(self, filename):
+        f = open(filename, encoding='gbk')
         lines = 0
         buf_size = 1024 * 1024
         read_f = f.read  # loop optimization

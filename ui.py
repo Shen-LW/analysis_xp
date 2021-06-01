@@ -309,7 +309,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         for filename in filename_list:
             star = SatelliteData(file_path=filename, dataHead=None)
-            self.excel_data.append(star)
+            self.excel_data.append(copy.deepcopy(star))
 
         self.update_talbe1()
         self.crawl_btn.setEnabled(True)
@@ -862,8 +862,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 right_time = self.manual_item.dataHead['end_time']
 
             self.manual_item.manual_choice(left_time, right_time, float(select_range[1]), float(select_range[3]), self.progress)
-            # 对缓存数据重新采样
 
+            # 对缓存数据重新采样
             star_data_list = list(self.manual_item.star_data.keys())
             left_stamp = self.timestr2timestamp(star_data_list[0])
             right_stamp = self.timestr2timestamp(star_data_list[-1])
@@ -874,12 +874,31 @@ class UiTest(QMainWindow, Ui_MainWindow):
             x, y = self.get_choice_data_xy(self.manual_item.star_cache_data)
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
         elif self.r_pw.is_rate_edit:  # 变化率剔野
-            undo_data = copy.deepcopy(self.choice_data)
-            self.undo_list.append(undo_data)
             # 获取基准点
             base_point = self.r_pw.base_point_list
-            normal_rate = self.manual_item['params_three']
-            self.rate_choice(base_point, float(normal_rate))
+            if not base_point:
+                message_box = MyMessageBox()
+                message_box.setContent("提示", "前先选择基本点")
+                message_box.exec_()
+                return
+
+            normal_rate = self.manual_item.dataHead['params_three']
+            if normal_rate is '' or normal_rate is None:
+                message_box = MyMessageBox()
+                message_box.setContent("提示", "变化率剔野参数错误")
+                message_box.exec_()
+                return
+            else:
+                try:
+                    normal_rate = float(normal_rate.replace(' ',''))
+                except:
+                    message_box = MyMessageBox()
+                    message_box.setContent("提示", "变化率剔野参数不是数字")
+                    message_box.exec_()
+                    return
+            self.manual_item.rate_choice(base_point, normal_rate)
+
+            # 重采样
             x, y = self.get_choice_data_xy()
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
 
@@ -916,161 +935,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_pw.autoRange()
         self.l_pw.autoRange()
 
-
-    def rate_choice(self, base_point, normal_rate):
-        if not base_point:
-            message_box = MyMessageBox()
-            message_box.setContent("提示", "前先选择基本点")
-            message_box.exec_()
-            return
-        # 获取基准点对应的时间, 统一取右边值
-        # 如果数据点太多的话，可以考虑用二叉搜索或者快速搜索
-        tmp_chice_data = copy.deepcopy(self.choice_data)
-        tmp_chice_data = list(tmp_chice_data.items())
-        start_time = datetime.datetime.strptime(tmp_chice_data[0][0], "%Y-%m-%d %H:%M:%S.%f")
-        end_time = datetime.datetime.strptime(tmp_chice_data[-1][0], "%Y-%m-%d %H:%M:%S.%f")
-
-        base_point = [item for item in base_point if (item >= start_time and item < end_time)]
-        base_point.reverse()
-        correct_base_point = []
-        tmp_point = base_point.pop()
-        for index in range(len(tmp_chice_data)):
-            time_str, v = tmp_chice_data[index]
-            t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
-            if t >= tmp_point:
-                correct_base_point.append((index, t))
-                if base_point:
-                    tmp_point = base_point.pop()
-                else:
-                    break
-
-        # 构建基准点结构数组
-        base_point_struct_list = []
-        for index, t in correct_base_point:
-            base_point_struct_list.append({
-                "left_status": 1,  # 1: 运行剔野， 0: 剔野停止
-                "right_status": 1,
-                "left": index - 1,  # 左边位置指针
-                "right": index + 1,  # 右边位置指针
-                "left_outlier": None,  # 左边野点的最后位置
-                "right_outlier": None,  # 右边野点的最后位置
-                "left_normal": index,  # 左边最后一个正常点
-                "right_normal": index,  # 右边最后一个正常点
-            })
-
-        # 对解构数组进行扩增，避免循环中的越界判断
-        base_point_struct_list.insert(0, {
-            "left_status": 0,
-            "right_status": 0,
-            "left": 0,
-            "right": 0,
-            "left_outlier": None,
-            "right_outlier": None,
-            "left_normal": None,
-            "right_normal": None
-        })
-        base_point_struct_list.append({
-            "left_status": 0,
-            "right_status": 0,
-            "left": len(tmp_chice_data),
-            "right": len(tmp_chice_data),
-            "left_outlier": None,
-            "right_outlier": None,
-            "left_normal": None,
-            "right_normal": None
-        })
-
-        # 开始剔野
-        correct_index_list = []  # 需要剔除的野点
-        number = math.ceil(len(tmp_chice_data) / (len(base_point_struct_list) - 2))  # 外部循环次数，每次对各个基准点处理一次
-        for i in range(number):
-            for n in range(1, len(base_point_struct_list) - 1):
-                point_struct = base_point_struct_list[n]
-                before_point_struct = base_point_struct_list[n - 1]
-                after_point_struct = base_point_struct_list[n + 1]
-                # 左右两边分别进行
-                # 左边
-                if point_struct["left_status"]:
-                    if point_struct["left"] < 0:
-                        point_struct["left_status"] = 0
-                    else:
-                        if point_struct["left"] >= before_point_struct['right']:
-                            curr_point = tmp_chice_data[point_struct["left"]]
-                            left_normal_point = tmp_chice_data[point_struct["left_normal"]]
-
-                            # 判断时间是否超过十分钟, 超过则停止该方向剔野
-                            curr_point_time = datetime.datetime.strptime(curr_point[0], "%Y-%m-%d %H:%M:%S.%f")
-                            left_normal_point_time = datetime.datetime.strptime(left_normal_point[0],
-                                                                                "%Y-%m-%d %H:%M:%S.%f")
-                            if (left_normal_point_time - curr_point_time) > datetime.timedelta(seconds=600):
-                                point_struct["left_status"] = 0
-                            # 判断变化率
-                            space = left_normal_point_time - curr_point_time
-                            space_s = space.seconds * 1000000 + space.microseconds
-                            if abs((left_normal_point[1] - curr_point[1]) / (space_s / 1000000)) > abs(normal_rate):
-                                # 野点
-                                correct_index_list.append(point_struct["left"])
-                                # 判断野点数是否超过十分钟, 停止剔野
-                                if point_struct["left_outlier"]:
-                                    befor_outlier_point = tmp_chice_data[point_struct["left_outlier"]]
-                                    befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
-                                                                                          "%Y-%m-%d %H:%M:%S.%f")
-                                    if (befor_outlier_point_time - curr_point_time) > datetime.timedelta(seconds=600):
-                                        point_struct["left_status"] = 0
-                                else:
-                                    point_struct["left_outlier"] = point_struct["left"]
-                            else:
-                                # 正常点
-                                point_struct["left_normal"] = point_struct["left"]
-                                point_struct["left_outlier"] = None
-                            point_struct["left"] = point_struct["left"] - 1
-                        else:
-                            point_struct["left_status"] = 0
-
-                # 右边
-                if point_struct["right_status"]:
-                    if point_struct["right"] >= len(tmp_chice_data):
-                        point_struct["right_status"] = 0
-                    else:
-                        if point_struct["right"] <= after_point_struct['left']:
-                            curr_point = tmp_chice_data[point_struct["right"]]
-                            right_normal_point = tmp_chice_data[point_struct["right_normal"]]
-
-                            # 判断时间是否超过十分钟, 超过则停止该方向剔野
-                            curr_point_time = datetime.datetime.strptime(curr_point[0], "%Y-%m-%d %H:%M:%S.%f")
-                            right_normal_point_time = datetime.datetime.strptime(right_normal_point[0],
-                                                                                 "%Y-%m-%d %H:%M:%S.%f")
-                            if (curr_point_time - right_normal_point_time) > datetime.timedelta(seconds=600):
-                                point_struct["right_status"] = 0
-                            # 判断变化率
-                            space = curr_point_time - right_normal_point_time
-                            space_s = space.seconds * 1000000 + space.microseconds
-                            if abs((curr_point[1] - right_normal_point[1]) / (space_s / 1000000)) > abs(normal_rate):
-                                # 野点
-                                correct_index_list.append(point_struct["right"])
-                                # 判断野点数是否超过十分钟, 停止剔野
-                                if point_struct["right_outlier"]:
-                                    befor_outlier_point = tmp_chice_data[point_struct["right_outlier"]]
-                                    befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
-                                                                                          "%Y-%m-%d %H:%M:%S.%f")
-                                    if (curr_point_time - befor_outlier_point_time) > datetime.timedelta(seconds=600):
-                                        point_struct["right_status"] = 0
-                                else:
-                                    point_struct["right_outlier"] = point_struct["right"]
-                            else:
-                                # 正常点
-                                point_struct["right_normal"] = point_struct["right"]
-                                point_struct["right_outlier"] = None
-                            point_struct["right"] = point_struct["right"] + 1
-                        else:
-                            point_struct["right_status"] = 0
-
-        correct_index_list.sort()
-        print(correct_index_list)
-        # 剔除野点
-        for index in correct_index_list:
-            time_str = tmp_chice_data[index][0]
-            self.choice_data[time_str] = 0
 
     def save_chaneg(self):
         message_box = MyMessageBox()
