@@ -225,7 +225,9 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
     start_time = trans_data_time(start_time)
     end_time = trans_data_time(end_time)
     # 安照10分钟生成数据
+    ii = -1
     while 1:
+        ii = ii + 1
         min_value = random.randint(-1000, 0) / 1000
         max_value = random.randint(0, 1000) / 1000
         next_time = start_time + datetime.timedelta(minutes=10)
@@ -234,16 +236,20 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
             end_time_str = str(next_time) + '.454'
             items = create_test_timedata(start_time_str, end_time_str, min_value, max_value)
             # 增加一个随机噪声
-            index = random.randint(0, 599)
-            n_v = float(items[index]["V02317575"]) * 2
-            items[index]["V02317575"] = str(n_v) + '0' * (16 - len(str(n_v)))
+            if ii % 6 == 0:
+                index = random.randint(0, 599)
+                n_v = float(items[index]["V02317575"]) + 3
+                n_v = str(n_v) + '0' * (16 - len(str(n_v)))
+                items[index]["V02317575"] = n_v[:16]
             items = parse_data(items)
             items_keys = [k for k in items.keys()]
             for i in range(0, len(items_keys), 10000):
                 tm = collections.OrderedDict()
                 for item_key in items_keys[i:i + 10000]:
                     tm[item_key] = items[item_key]
-                satellite_data.add_data(tm)
+                if ii not in [i for i in range(216, 332)]:
+                    satellite_data.add_data(tm)
+
             del items
             del items_keys
             gc.collect()
@@ -254,7 +260,8 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
             # 增加一个随机噪声
             index = random.randint(0, 599)
             n_v = float(items[index]["V02317575"]) + 3
-            items[index]["V02317575"] = str(n_v) + '0' * (16 - len(str(n_v)))
+            n_v = str(n_v) + '0' * (16 - len(str(n_v)))
+            items[index]["V02317575"] = n_v[:16]
             items = parse_data(items)
             items_keys = [k for k in items.keys()]
             for i in range(0, len(items_keys), 10000):
@@ -286,11 +293,13 @@ def parse_data(items):
     new_items = collections.OrderedDict()
     for item in items:
         new_k = ''
-        new_v = 0.0
+        new_v = '0.00000000000000'
         for k, v in item.items():
             if k == 'T0':
                 new_k = v
             else:
+                n_v = str(v) + '0' * (16 - len(str(v)))
+                v = n_v[:16]
                 new_v = v
             # if type(v) == float:
             #     new_v = v

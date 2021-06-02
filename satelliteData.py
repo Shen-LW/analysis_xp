@@ -301,13 +301,13 @@ class SatelliteData:
             source_f = open(choice_file, 'r', encoding='gbk')
             new_cache_f = open(new_cache_file, 'w', encoding='gbk')
 
-            line = source_f.readline()  # 跳过head行
-            new_cache_f.write(line)
+            source_line = source_f.readline()  # 跳过head行
+            new_cache_f.write(source_line)
 
             progress_index = 0
             progress_number = self.bufcount(choice_file) - 1
             cache_lines = []  # 满10000行再开始写入，加快速度
-            while line:
+            while source_line:
                 source_line = source_f.readline()
                 line = source_line.replace('\n', '')
                 if line == '':
@@ -327,6 +327,10 @@ class SatelliteData:
                     progress.show()
                     QApplication.processEvents()
                     progress_index = progress_index + 10000
+            if cache_lines:
+                new_cache_f.writelines(cache_lines)
+                new_cache_f.flush()
+                cache_lines.clear()
 
             star_data_list = list(self.star_data.keys())
             self.cache_list.append({'file_path': new_cache_file,
@@ -336,13 +340,13 @@ class SatelliteData:
         finally:
             source_f.close()
             new_cache_f.close()
-
-        progress.setValue(100)
-        progress.hide()
-
+            progress.setValue(100)
+            progress.hide()
 
 
-    def rate_choice(self, base_point, normal_rate):
+
+
+    def rate_choice(self, base_point, normal_rate, progress):
         # 获取基准点对应的时间, 统一取右边值
         # 如果数据点太多的话，可以考虑用二叉搜索或者快速搜索
         if self.cache_list:
@@ -352,6 +356,11 @@ class SatelliteData:
         point_total = self.bufcount(filename) - 1
         start_time = datetime.datetime.strptime(self.dataHead['start_time'], "%Y-%m-%d %H:%M:%S.%f")
         end_time = datetime.datetime.strptime(self.dataHead['end_time'], "%Y-%m-%d %H:%M:%S.%f")
+
+        progress.setContent("进度", '---数据准备中---')
+        progress.setValue(0)
+        progress.show()
+        QApplication.processEvents()
 
         f = open(filename, 'r', encoding='gbk')
         f.readline()
@@ -369,9 +378,6 @@ class SatelliteData:
             if line == '':
                 continue
             time_str, v = line.split('||')
-            v = float(v)
-            # time_str, v = self.read_line(f, whence, index)
-            # t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
             if time_str >= tmp_point_str:
                 t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
                 correct_base_point.append((index, t))
@@ -380,6 +386,15 @@ class SatelliteData:
                     tmp_point_str = str(tmp_point)
                 else:
                     break
+            if index % 10000 == 0:
+                progress.setValue((index / point_total) * 100)
+                progress.show()
+                QApplication.processEvents()
+
+        if not correct_base_point:
+            progress.hide()
+            f.close()
+            return False, "未找到任何基准点"
 
         # 构建基准点结构数组
         base_point_struct_list = []
@@ -420,9 +435,15 @@ class SatelliteData:
         # 开始剔野
         correct_index_list = []  # 需要剔除的野点
         number = math.ceil(point_total / (len(base_point_struct_list) - 2))  # 外部循环次数，每次对各个基准点处理一次
+        progress.setContent("进度", '---变化率剔野中---')
+        progress.setValue(0)
+        progress.show()
+        QApplication.processEvents()
         for i in range(number):
             if i % 10000 == 0:
-                print(i,  ' / ', number)
+                progress.setValue((i / number) * 100)
+                progress.show()
+                QApplication.processEvents()
             for n in range(1, len(base_point_struct_list) - 1):
                 point_struct = base_point_struct_list[n]
                 before_point_struct = base_point_struct_list[n - 1]
@@ -436,6 +457,8 @@ class SatelliteData:
                         if point_struct["left"] >= before_point_struct['right']:
                             curr_point = self.read_line(f, whence, point_struct["left"])
                             left_normal_point = self.read_line(f, whence, point_struct["left_normal"])
+                            if curr_point[0] is None or left_normal_point[0] is None:
+                                continue
                             # curr_point = tmp_chice_data[point_struct["left"]]
                             # left_normal_point = tmp_chice_data[point_struct["left_normal"]]
 
@@ -477,6 +500,8 @@ class SatelliteData:
                         if point_struct["right"] <= after_point_struct['left']:
                             curr_point = self.read_line(f, whence, point_struct["right"])
                             right_normal_point = self.read_line(f, whence, point_struct["right_normal"])
+                            if curr_point[0] is None or left_normal_point[0] is None:
+                                continue
                             # curr_point = tmp_chice_data[point_struct["right"]]
                             # right_normal_point = tmp_chice_data[point_struct["right_normal"]]
 
@@ -511,12 +536,65 @@ class SatelliteData:
                             point_struct["right_status"] = 0
 
         correct_index_list.sort()
-        print(correct_index_list)
-        # 剔除野点
-        for index in correct_index_list:
-            time_str = tmp_chice_data[index][0]
-            self.choice_data[time_str] = 0
+        print(len(correct_index_list))
+        progress.hide()
 
+        # 剔除野点, 保存缓存文件
+        if self.cache_list:
+            choice_file = self.cache_list[-1]['file_path']
+        else:
+            choice_file = self.file_path
+
+        filename, file_extension = os.path.splitext(os.path.basename(choice_file))
+        new_cache_file = 'tmp/cache/' + filename + '_' + str(len(self.cache_list)) + '.cache'
+        try:
+            source_f = open(choice_file, 'r', encoding='gbk')
+            source_f.seek(0)
+            new_cache_f = open(new_cache_file, 'w', encoding='gbk')
+
+            source_line = source_f.readline()  # 跳过head行
+            new_cache_f.write(source_line)
+            progress.setContent("进度", '---野点剔除中---')
+            progress.setValue(0)
+            progress.show()
+            QApplication.processEvents()
+            progress_index = 0
+            progress_number = self.bufcount(choice_file) - 1
+            cache_lines = []  # 满10000行再开始写入，加快速度
+            index = -1
+            while source_line:
+                source_line = source_f.readline()
+                index = index + 1
+                line = source_line.replace('\n', '')
+                if line == '' or (index in correct_index_list):
+                    continue
+                else:
+                    cache_lines.append(source_line)
+
+                if len(cache_lines) > 10000:
+                    new_cache_f.writelines(cache_lines)
+                    new_cache_f.flush()
+                    cache_lines.clear()
+                    # del cache_lines
+                    progress.setValue((progress_index / progress_number) * 100)
+                    progress.show()
+                    QApplication.processEvents()
+                    progress_index = progress_index + 10000
+            if cache_lines:
+                new_cache_f.writelines(cache_lines)
+                new_cache_f.flush()
+                cache_lines.clear()
+            star_data_list = list(self.star_data.keys())
+            self.cache_list.append({'file_path': new_cache_file,
+                                    'start_time': star_data_list[0],
+                                    'end_time': star_data_list[-1]})
+            self.is_undo = False
+        finally:
+            source_f.close()
+            new_cache_f.close()
+            progress.setValue(100)
+            progress.hide()
+        return True, None
 
     def rename_extension(self):
         '''
@@ -541,7 +619,10 @@ class SatelliteData:
             curr_cache = self.cache_list.pop()
             if os.path.exists(curr_cache['file_path']):
                 os.remove(curr_cache['file_path'])
-            return self.cache_list.pop()
+            if self.cache_list:
+                return self.cache_list.pop()
+            else:
+                return None
 
 
     def clear_cache_file(self):
@@ -554,6 +635,9 @@ class SatelliteData:
             if os.path.exists(filename):
                 os.remove(filename)
         self.cache_list = []
+        self.star_cache_data = []
+        self.star_data = []
+        self.is_undo = False
 
     def bufcount(self, filename):
         f = open(filename, encoding='gbk')

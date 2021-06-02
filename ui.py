@@ -7,6 +7,7 @@ import copy
 import uuid
 import collections
 import json
+import shutil
 
 import xlrd
 from PIL import Image
@@ -551,9 +552,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.undo_btn.setEnabled(False)
         self.undo_btn.setStyleSheet(
             'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-        self.save_change_btn.setEnabled(False)
-        self.save_change_btn.setStyleSheet(
-            'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+        # self.save_change_btn.setEnabled(False)
+        # self.save_change_btn.setStyleSheet(
+        #     'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
 
     def select_row(self, r):
         pass
@@ -620,9 +621,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.undo_btn.setEnabled(False)
                 self.undo_btn.setStyleSheet(
                     'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-                self.save_change_btn.setEnabled(False)
-                self.save_change_btn.setStyleSheet(
-                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                # self.save_change_btn.setEnabled(False)
+                # self.save_change_btn.setStyleSheet(
+                #     'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
 
             self.manual_btn.setEnabled(True)
             self.rate_btn.setEnabled(True)
@@ -655,9 +656,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.delete_btn.setEnabled(False)
             self.delete_btn.setStyleSheet(
                 'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-            self.save_change_btn.setEnabled(False)
-            self.save_change_btn.setStyleSheet(
-                'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+            # self.save_change_btn.setEnabled(False)
+            # self.save_change_btn.setStyleSheet(
+            #     'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
 
             # 重置选择框
             self.r_pw.region.setSize([0, 0])
@@ -775,9 +776,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.undo_btn.setEnabled(False)
                 self.undo_btn.setStyleSheet(
                     'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-                self.save_change_btn.setEnabled(False)
-                self.save_change_btn.setStyleSheet(
-                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                # self.save_change_btn.setEnabled(False)
+                # self.save_change_btn.setStyleSheet(
+                #     'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
             else:
                 self.r_pw.is_manual_edit = True
                 self.manual_btn.setStyleSheet(
@@ -788,9 +789,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.delete_btn.setText("批量删除(D)")
                 self.undo_btn.setEnabled(True)
                 self.undo_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
-                self.save_change_btn.setEnabled(True)
-                self.save_change_btn.setStyleSheet(
-                    'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                # self.save_change_btn.setEnabled(True)
+                # self.save_change_btn.setStyleSheet(
+                #     'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
         elif key == Qt.Key_R:
             self.manual_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
             self.r_pw.is_manual_edit = False
@@ -808,9 +809,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.undo_btn.setEnabled(False)
                 self.undo_btn.setStyleSheet(
                     'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
-                self.save_change_btn.setEnabled(False)
-                self.save_change_btn.setStyleSheet(
-                    'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+                # self.save_change_btn.setEnabled(False)
+                # self.save_change_btn.setStyleSheet(
+                #     'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
             else:
                 self.r_pw.is_rate_edit = True
                 self.rate_btn.setStyleSheet('background-color : LightCoral;color:#fff;font: 10pt "Microsoft YaHei UI";')
@@ -822,9 +823,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.delete_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
                 self.undo_btn.setEnabled(True)
                 self.undo_btn.setStyleSheet('background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
-                self.save_change_btn.setEnabled(True)
-                self.save_change_btn.setStyleSheet(
-                    'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
+                # self.save_change_btn.setEnabled(True)
+                # self.save_change_btn.setStyleSheet(
+                #     'background-color:#455ab3;color:#fff;font: 10pt "Microsoft YaHei UI";')
 
     def undo_base_point(self):
         self.r_pw.undo_base_line()
@@ -896,11 +897,26 @@ class UiTest(QMainWindow, Ui_MainWindow):
                     message_box.setContent("提示", "变化率剔野参数不是数字")
                     message_box.exec_()
                     return
-            self.manual_item.rate_choice(base_point, normal_rate)
+            isTrue, data = self.manual_item.rate_choice(base_point, normal_rate, self.progress)
+            if not isTrue:
+                message_box = MyMessageBox()
+                message_box.setContent("提示", data)
+                message_box.exec_()
+                return
 
-            # 重采样
-            x, y = self.get_choice_data_xy()
+            # 对缓存数据重新采样
+            star_data_list = list(self.manual_item.star_data.keys())
+            left_stamp = self.timestr2timestamp(star_data_list[0])
+            right_stamp = self.timestr2timestamp(star_data_list[-1])
+            # 当前区间
+            curr_left_time = self.timestamp2timestr(left_stamp)
+            curr_right_time = self.timestamp2timestr(right_stamp)
+            self.manual_item.resampling(curr_left_time, curr_right_time, self.progress, self.manual_item.cache_list[-1])
+            x, y = self.get_choice_data_xy(self.manual_item.star_cache_data)
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
+            # 删除基准点
+            for i in range(len(base_point)):
+                self.undo_base_point()
 
         # 重置状态
         self.region.setSize([0, 0], [0, 0])
@@ -910,8 +926,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def delete_undo(self):
         if self.manual_item.cache_list:
-
             cache = self.manual_item.undo_cache()
+            if cache is None:
+                r_x, r_y = self.get_choice_data_xy(self.manual_item.star_data)
+                self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
             # 重新抽样
             self.manual_item.resampling(cache['start_time'], cache['end_time'], self.progress)
             l_x, l_y = self.get_choice_data_xy(self.manual_item.star_data)
@@ -942,7 +960,16 @@ class UiTest(QMainWindow, Ui_MainWindow):
         message_box.exec_()
 
         if message_box.reply == QMessageBox.Ok:
-            self.manual_item["data"] = self.choice_data
+            # 拷贝替换文件
+            if self.manual_item.cache_list:
+                source_file = self.manual_item.cache_list[-1]['file_path']
+                dest_file = self.manual_item.file_path
+                shutil.copyfile(source_file, dest_file)
+                # 清理缓存文件
+                self.manual_item.clear_cache_file()
+            else:
+                pass
+
             index = self.fileinfo_table_2.currentIndex().row()
             self.fileinfo_table_2.setItem(index, 1, QTableWidgetItem("手动剔野"))
             self.fileinfo_table_2.item(index, 1).setBackground(QColor(100, 255, 0))
@@ -996,29 +1023,32 @@ class UiTest(QMainWindow, Ui_MainWindow):
         tmp_data = collections.OrderedDict()
         for i in range(len(self.excel_data)):
             if i in self.select_indexs:
-                tmp_data[str(i)] = copy.deepcopy(self.excel_data[i])
+                tmp_data[str(i)] = self.excel_data[i]
 
         # 源包剔野
         # source = {"source": {"index": "value"}}
         source_type = collections.OrderedDict()
-        for index, value in tmp_data.items():
-            if not self.check_choice("source", value["params_four"]):
+        for index, star in tmp_data.items():
+            dataHead = star.dataHead
+            if not self.check_choice("source", dataHead["params_four"]):
                 continue
-            if value["telemetry_source"] not in source_type.keys():
-                source_type[value["telemetry_source"]] = collections.OrderedDict()
-            source_type[value["telemetry_source"]][index] = value
-        for type, value in source_type.items():
-            self.source_choice(value)
+            if dataHead["telemetry_source"] not in source_type.keys():
+                source_type[dataHead["telemetry_source"]] = collections.OrderedDict()
+            source_type[dataHead["telemetry_source"]][index] = star
+
+        for type, star_list in source_type.items():
+            # self.source_choice(star_list)
+            pass
 
         # 阈值剔野
-        for index, value in tmp_data.items():
-            if self.check_choice('threshold', value['params_four']):
-                self.threshold_choice(index, value)
+        for index, star in tmp_data.items():
+            if self.check_choice('threshold', star.dataHead['params_four']):
+                self.threshold_choice(index, star)
 
         # 变化率剔野和手动剔野已合并
 
         # 修改剔野状态
-        for index, value in tmp_data.items():
+        for index in tmp_data.keys():
             self.fileinfo_table_2.setItem(int(index), 1, QTableWidgetItem("自动剔野"))
             self.fileinfo_table_2.item(int(index), 1).setBackground(QColor(100, 255, 0))
             QApplication.processEvents()
@@ -1079,6 +1109,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if len(source_data_dict.values()) < 5:
             return
 
+        # todo 剔野的文件实现方法得重新设计
+
         # 获取所有时间键
         all_time = []
         for k, v in source_data_dict.items():
@@ -1103,17 +1135,60 @@ class UiTest(QMainWindow, Ui_MainWindow):
         for index, v in source_data_dict.items():
             self.excel_data[int(k)]['data'] = v['data']
 
-    def threshold_choice(self, index, value):
-        data = value['data']
-        params_two = value['params_two']
+    def threshold_choice(self, index, star):
+        params_two = star.dataHead['params_two']
         threshold = params_two.replace("[", '').replace("]", '').replace(' ', '').replace('，', ',')
         threshold = threshold.split(',')
 
-        for t, v in value["data"].items():
-            if float(v) > float(threshold[1]) or float(v) < float(threshold[0]):
-                value['data'][t] = 0
+        # 文件保存交互问题
+        tmp_file_name = star.file_path[:-5] + '.tmp'
+        source_f = open(star.file_path, 'r', encoding='gbk')
+        tmp_f = open(tmp_file_name, 'w', encoding='gbk')
+        source_line = source_f.readline()  # 跳过head行
+        tmp_f.write(source_line)
+        self.progress.setContent("进度", '---' + star.dataHead['telemetry_num'] +'阈值剔野中---')
+        self.progress.setValue(0)
+        self.progress.show()
+        QApplication.processEvents()
+        progress_index = 0
+        progress_number = star.bufcount(star.file_path) - 1
+        cache_lines = []  # 满10000行再开始写入，加快速度
+        progress_index = 0
+        while source_line:
+            source_line = source_f.readline()
+            progress_index = progress_index + 1
+            line = source_line.replace('\n', '')
+            if line == '':
+                continue
+            else:
+                time_str, v = line.split('||')
+                if float(v) < float(threshold[0]) or float(v) > float(threshold[1]):
+                    continue
+                cache_lines.append(source_line)
 
-        self.excel_data[int(index)]['data'] = value['data']
+            if len(cache_lines) > 10000:
+                tmp_f.writelines(cache_lines)
+                tmp_f.flush()
+                cache_lines.clear()
+                # del cache_lines
+                self.progress.setValue((progress_index / progress_number) * 100)
+                self.progress.show()
+                QApplication.processEvents()
+
+        if cache_lines:
+            tmp_f.writelines(cache_lines)
+            tmp_f.flush()
+            cache_lines.clear()
+        source_f.close()
+        tmp_f.close()
+        self.progress.hide()
+        # 替换源文件
+        #  如果文件存在，则删除
+        if os.path.isfile(star.file_path):
+            os.remove(star.file_path)
+        os.rename(tmp_file_name, star.file_path)
+
+
 
     def check_choice(self, module_name, params_four):
         params = params_four.replace("(", '').replace("（", '').replace(')', '').replace('）', ''). \
