@@ -525,10 +525,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.r_plot_data.setData(x=r_x, y=r_y, pen=pg.mkPen('r', width=1))
 
         # 手动剔野界面状态重置
-        self.region.setSize([0, 0], [0, 0])
-        self.r_pw.roi_range = None
-        self.r_pw.autoRange()
-        self.l_pw.autoRange()
         self.hidden_frame('choice')
         self.r_pw.reset_rate_edit()
         self.r_pw.is_manual_edit = False
@@ -558,6 +554,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # self.save_change_btn.setEnabled(False)
         # self.save_change_btn.setStyleSheet(
         #     'font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
+
+        self.region.setSize([0, 0], [0, 0])
+        self.r_pw.roi_range = None
+        self.r_pw.autoRange()
+        self.l_pw.autoRange()
 
     def select_row(self, r):
         pass
