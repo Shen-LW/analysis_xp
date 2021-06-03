@@ -526,6 +526,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         # 手动剔野界面状态重置
         self.region.setSize([0, 0], [0, 0])
+        self.r_pw.roi_range = None
+        self.r_pw.autoRange()
+        self.l_pw.autoRange()
         self.hidden_frame('choice')
         self.r_pw.reset_rate_edit()
         self.r_pw.is_manual_edit = False
@@ -1037,8 +1040,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             source_type[dataHead["telemetry_source"]][index] = star
 
         for type, star_list in source_type.items():
-            # self.source_choice(star_list)
-            pass
+            self.source_choice(star_list)
 
         # 阈值剔野
         for index, star in tmp_data.items():
@@ -1103,37 +1105,155 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 # 重新选择自动剔野项
                 self.change_auto_choice_index(1)
 
-    def source_choice(self, source_data_dict):
-        # {"index": "value"}
+    def source_choice(self, star_list):
+        # {"index": "star"}
         # 长度小于5，直接返回
-        if len(source_data_dict.values()) < 5:
+        if len(star_list) < 5:
             return
 
-        # todo 剔野的文件实现方法得重新设计
+        self.progress.setContent("进度", '---源包剔野中---')
+        self.progress.setValue(0)
+        self.progress.show()
+        QApplication.processEvents()
+        # todo 后期可以考虑优化这里
+        # 获取选择文件中，数据最多的行数作为循环次数. 同时创建文件
+        point_total = 0
+        source_f_list = []
+        tmp_f_list = []
+        threshold_list = []
+        for index_str, star in star_list.items():
+            source_f_list.append(open(star.file_path, 'r', encoding='gbk'))
+            tmp_file_name = star.file_path[:-5] + '.tmp'
+            tmp_f_list.append(open(tmp_file_name, 'w', encoding='gbk'))
+            total = star.bufcount(star.file_path)
+            if total > point_total:
+                point_total = total
+            params_one = star.dataHead['params_one']
+            threshold = params_one.replace("[", '').replace("]", '').replace(' ', '').replace('，', ',')
+            threshold = threshold.split(',')
+            threshold_list.append(threshold)
 
-        # 获取所有时间键
-        all_time = []
-        for k, v in source_data_dict.items():
-            all_time = all_time + [j for j in v['data'].keys()]
-        all_time = list(set(all_time))
+        # 写入文件头部信息
+        # 并且读取第一次数据
+        time_line_list = []
+        time_str_list = []
+        time_value_list = []
+        for index, source_f in enumerate(source_f_list):
+            line = source_f.readline()
+            tmp_f_list[index].write(line)
+            time_line = source_f.readline()
+            time_line_list.append(time_line)
+            time_line = time_line.replace('\n', '')
+            time_str, time_value = time_line.split('||')
+            time_str_list.append(time_str)
+            time_value_list.append(time_value)
 
-        for t in all_time:
-            number = 0
-            for item in source_data_dict.values():
-                params_one = item['params_one']
-                threshold = params_one.replace("[", '').replace("]", '').replace(' ', '').replace('，', ',')
-                threshold = threshold.split(',')
-                if t in item['data'].keys() and (
-                        float(item['data'][t]) > float(threshold[1]) or float(item['data'][t]) < float(threshold[0])):
-                    number = number + 1
+        # 依次步进剔野
+        for i in range(point_total * len(star_list)):
+            if i % 10000 == 0:
+                self.progress.setValue((i / point_total) * 100)
+                self.progress.show()
+                QApplication.processEvents()
+            if not source_f_list:
+                break
+            delete_index = []
+            # 如果长度小于5了，直接写入
+            if len(source_f_list) < 5:
+                for j in range(len(source_f_list)):
+                    source_line = source_f_list[j].readline()
+                    line = source_line.replace('\n', '')
+                    if line == '' or line is None:
+                        delete_index.append(j)
+                    else:
+                        tmp_f_list[j].write(source_line)
+                        tmp_f_list[j].flush()
+            else:
+                # 判断当前最小值
+                min_str = min(time_str_list)
+                # 判断最小值的个数
+                number = time_str_list.count(min_str)
+                delete_index = []
+                if number >= 5:  # 同一时间段大于5个
+                    # 判单时间最小值对应的野点格式有
+                    n = 0
+                    for index, time_str in enumerate(time_str_list):
+                        if time_str == min_str:
+                            if float(time_value_list[index]) > float(threshold_list[index][1]) or float(time_value_list[index]) < float(threshold_list[index][0]):
+                                n = n + 1
 
-            # 如果野点大于等于4，则用时间全部剔除
-            if number >= 4:
-                for item in source_data_dict.values():
-                    item['data'][t] = 0
+                    for index, time_str in enumerate(time_str_list):
+                        if time_str == min_str:
+                            if n < 5:  # 野点数小于5 直接写入
+                                tmp_f_list[index].write(time_line_list[index])
+                            # else:
+                            #     print(time_str)
 
-        for index, v in source_data_dict.items():
-            self.excel_data[int(k)]['data'] = v['data']
+                            source_line = source_f_list[index].readline()
+                            line = source_line.replace('\n', '')
+                            if line == '' or line is None:
+                                delete_index.append(index)
+                            else:
+                                time_str, value = line.split('||')
+                                time_line_list[index] = source_line
+                                time_str_list[index] = time_str
+                                time_value_list[index] = value
+                else:  # 最小值写入并步进
+                    for index, time_str in enumerate(time_str_list):
+                        if time_str == min_str:
+                            tmp_f_list[index].write(time_line_list[index])
+                            source_line = source_f_list[index].readline()
+                            line = source_line.replace('\n', '')
+                            if line == '' or line is None:
+                                delete_index.append(index)
+                            else:
+                                time_str, value = line.split('||')
+                                time_line_list[index] = source_line
+                                time_str_list[index] = time_str
+                                time_value_list[index] = value
+            if delete_index:
+                # 避免在循环中删除循环本身的对象
+                # 准备对象
+                delete_source_f_list = []
+                delete_tmp_f_list = []
+                delete_time_line_list = []
+                delete_time_str_list = []
+                delete_time_value_list = []
+                delete_threshold_list = []
+                for d in delete_index:
+                    source_f_list[d].close()
+                    delete_source_f_list.append(source_f_list[d])
+                    tmp_f_list[d].close()
+                    delete_tmp_f_list.append(tmp_f_list[d])
+                    delete_time_line_list.append(time_line_list[d])
+                    delete_time_str_list.append(time_str_list[d])
+                    delete_time_value_list.append(time_value_list[d])
+                    delete_threshold_list.append(threshold_list[d])
+                # 删除
+                for d_index in range(len(delete_index)):
+                    source_f_list.remove(delete_source_f_list[d_index])
+                    tmp_f_list.remove(delete_tmp_f_list[d_index])
+                    time_line_list.remove(delete_time_line_list[d_index])
+                    time_str_list.remove(delete_time_str_list[d_index])
+                    time_value_list.remove(delete_time_value_list[d_index])
+                    threshold_list.remove(delete_threshold_list[d_index])
+                delete_index.clear()
+
+
+        self.progress.hide()
+        # 保证文件关闭
+        for f in source_f_list:
+            f.close()
+        for f in tmp_f_list:
+            f.close()
+
+        # 修改拷贝文件
+        for index_str, star in star_list.items():
+            if os.path.isfile(star.file_path):
+                os.remove(star.file_path)
+            tmp_file_name = star.file_path[:-5] + '.tmp'
+            os.rename(tmp_file_name, star.file_path)
+
+
 
     def threshold_choice(self, index, star):
         params_two = star.dataHead['params_two']
@@ -1215,10 +1335,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
             return
 
         # 剔野后json数据导出
-        file_dir = os.path.dirname(fileName_choose)
-        filename = time.strftime("%Y%m%d_%H%M%S") + '.json'
-        json_filename = os.path.join(file_dir, filename)
-        self.report_data_json(json_filename)
+        # todo 由于文件大小以及磁盘空间的考虑，暂时取消文件导出，剔野过后的文件将替换原文件
+        # file_dir = os.path.dirname(fileName_choose)
+        # filename = time.strftime("%Y%m%d_%H%M%S") + '.json'
+        # json_filename = os.path.join(file_dir, filename)
+        # self.report_data_json(json_filename)
 
         self.update_choice_parms()
         # 准备数据
@@ -1227,12 +1348,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         start_y, start_m, start_d = create_time.split(' ')[0].split('/')
         end_y, end_m, end_d = end_time.split(' ')[0].split('/')
-        # start_y = create_time[0:4]
-        # start_m = create_time[5:7]
-        # start_d = create_time[8:10]
-        # end_y = end_time[0:4]
-        # end_m = end_time[5:7].replace('/', '')
-        # end_d = end_time[8:10].replace('/', '')
         error_number, records = self.create_table1_data()
         if error_number == 0:
             error_text = '无异常现象。'
@@ -1306,13 +1421,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         # 多组数据组合制图
         drafting_number = {}
-        for item in self.excel_data:
-            img_num = str(item['img_num'])
+        for star in self.excel_data:
+            img_num = str(star.dataHead['img_num'])
             if img_num == '' or img_num == 'None':
                 continue
             if img_num not in drafting_number:
                 drafting_number[img_num] = []
-            drafting_number[img_num].append(item)
+            drafting_number[img_num].append(star)
 
         # 制图名排血
         img_nums = [k for k in drafting_number.keys()]
@@ -1320,7 +1435,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 生成图片
         for img_num in img_nums:
             drafting_list = drafting_number[img_num]
-            image_path, h = self.create_docx_image([item['data'] for item in drafting_list])
+            print("drafting_list")
+            print(drafting_list)
+            image_path, h = self.create_docx_image(drafting_list)
             document.add_picture(image_path, width=Inches(6), height=Inches(1.5 * h))
             table1_title = document.add_paragraph("图" + img_num)
             table1_title = table1_title.paragraph_format
@@ -1349,13 +1466,20 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def create_table1_data(self):
         data = []
         error_number = 0
-        for index in range(len(self.excel_data)):
-            item = self.excel_data[index]
-            if item['data'] == [] or item['data'] is None:
-                continue
+        self.progress.setContent("进度", '---表格统计生成中---')
+        self.progress.setValue(0)
+        self.progress.show()
+        QApplication.processEvents()
+        for index, star in enumerate(self.excel_data):
+            self.progress.setValue((index + 1) / len(self.excel_data) * 100)
+            self.progress.show()
+            QApplication.processEvents()
+            item = star.dataHead
+            # if item['data'] == [] or item['data'] is None:
+            #     continue
             if '允许' in item['normal_range']:
                 continue
-            parms_range = self.get_data_range(item["data"])
+            parms_range = star.get_data_range()
             normal_split = item['normal_range'].replace('°', '').replace('[', '').replace(']', '').replace('~',
                                                                                                            ',').replace(
                 ' ', '').split(',')
@@ -1369,6 +1493,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             child = (
                 index, item['telemetry_name'], item["telemetry_num"], str(parms_range), str(normal_range), range_status)
             data.append(child)
+        self.progress.hide()
         return error_number, tuple(data)
         # data = (
         #     (1, '滚动角', 'RKSA1', '该变量的范围（min,max）', '', '正常/异常'),
@@ -1383,8 +1508,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         data = []
         error_number = 0
         num = 0
-        for index in range(len(self.excel_data)):
-            item = self.excel_data[index]
+        for index, star in enumerate(self.excel_data):
+            item = star.dataHead
             if '允许' not in item['normal_range']:
                 continue
 
@@ -1428,23 +1553,20 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         joint.save(save_path)
 
-    def create_docx_image(self, data_list):
+    def create_docx_image(self, star_list):
         color_list = [(220, 20, 60), (0, 0, 255), (0, 255, 0), (255, 140, 0), (0, 255, 255), (255, 0, 255), (0, 0, 139)]
         index = 0
         split_name_list = []
-        for data in data_list:
+        for star in star_list:
             color = color_list[index % len(color_list)]
             index = index + 1
-            x = []
-            y = []
-            for k, v in data.items():
-                x.append(self.timestr2timestamp(k))
-                y.append(float(v))
+            star.resampling(star.dataHead['start_time'], star.dataHead['end_time'],  self.progress)
+            x, y = self.get_choice_data_xy(star.star_data)
             draw = DrawWindow(index, color, x, y, split_name_list)
             draw.showFullScreen()
 
         # 拼接图片
-        file_name = 'tmp/' + str(uuid.uuid1()).replace('-', '') + '.png'
+        file_name = 'tmp/image/' + str(uuid.uuid1()).replace('-', '') + '.png'
         self.split_image(split_name_list, file_name, flag='vertical')
         return file_name, len(split_name_list)
 
@@ -1458,11 +1580,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         rtn = str([format(float(item), '.4f') for item in json.loads(data_str)]).replace("'", '')
         return rtn
 
-    def get_data_range(self, data):
-        value_list = list(data.values())
-        minX = min(value_list)
-        maxX = max(value_list)
-        return [minX, maxX]
+
 
     def timestr2timestamp(self, timestr):
         datetime_obj = datetime.datetime.strptime(timestr, "%Y-%m-%d %H:%M:%S.%f")

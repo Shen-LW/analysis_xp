@@ -536,6 +536,7 @@ class SatelliteData:
                             point_struct["right_status"] = 0
 
         correct_index_list.sort()
+        correct_index_list.reverse()
         print(len(correct_index_list))
         progress.hide()
 
@@ -558,15 +559,21 @@ class SatelliteData:
             progress.setValue(0)
             progress.show()
             QApplication.processEvents()
-            progress_index = 0
             progress_number = self.bufcount(choice_file) - 1
             cache_lines = []  # 满10000行再开始写入，加快速度
             index = -1
+            cor_index = correct_index_list.pop()
             while source_line:
                 source_line = source_f.readline()
                 index = index + 1
+                if index % 10000 == 0:
+                    progress.setValue((index / progress_number) * 100)
+                    progress.show()
+                    QApplication.processEvents()
                 line = source_line.replace('\n', '')
-                if line == '' or (index in correct_index_list):
+                if line == '' or (index == cor_index):
+                    if correct_index_list:
+                        cor_index = correct_index_list.pop()
                     continue
                 else:
                     cache_lines.append(source_line)
@@ -576,10 +583,6 @@ class SatelliteData:
                     new_cache_f.flush()
                     cache_lines.clear()
                     # del cache_lines
-                    progress.setValue((progress_index / progress_number) * 100)
-                    progress.show()
-                    QApplication.processEvents()
-                    progress_index = progress_index + 10000
             if cache_lines:
                 new_cache_f.writelines(cache_lines)
                 new_cache_f.flush()
@@ -651,4 +654,24 @@ class SatelliteData:
             buf = read_f(buf_size)
 
         return lines
+
+
+    def get_data_range(self):
+        minX = 0
+        maxX = 0
+        f = open(self.file_path, encoding='gbk')
+        line = f.readline()
+        while line:
+            line = f.readline()
+            line = line.replace('\n', '')
+            if line == '':
+                break
+            time_str, v = line.split('||')
+            v = round(float(v), 3)
+            if v > maxX:
+                maxX = v
+            elif v < minX:
+                minX = v
+
+        return [minX, maxX]
 
