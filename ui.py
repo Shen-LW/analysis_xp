@@ -85,8 +85,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.label_3.setPixmap(logo)
         self.label_3.setScaledContents(True)
         self.hidden_frame('data_get')
-        # self.create_time_edit.setDateTime(QDateTime(2020, 10, 11, 00, 00, 00))
-        # self.end_time_edit.setDateTime(QDateTime(2020, 10, 16, 00, 00, 00))
         self.password_edit.setEchoMode(QLineEdit.Password)
 
         # 加载默认设置
@@ -1141,7 +1139,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         time_value_list = []
         for index, source_f in enumerate(source_f_list):
             line = source_f.readline()
-            tmp_f_list[index].write(line)
+            tmp_f_list[index].write(list(star_list.values())[index].get_headline())
             time_line = source_f.readline()
             time_line_list.append(time_line)
             time_line = time_line.replace('\n', '')
@@ -1266,7 +1264,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         source_f = open(star.file_path, 'r', encoding='gbk')
         tmp_f = open(tmp_file_name, 'w', encoding='gbk')
         source_line = source_f.readline()  # 跳过head行
-        tmp_f.write(source_line)
+        tmp_f.write(star.get_headline())
         self.progress.setContent("进度", '---' + star.dataHead['telemetry_num'] +'阈值剔野中---')
         self.progress.setValue(0)
         self.progress.show()
@@ -1436,8 +1434,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 生成图片
         for img_num in img_nums:
             drafting_list = drafting_number[img_num]
-            print("drafting_list")
-            print(drafting_list)
             image_path, h = self.create_docx_image(drafting_list)
             document.add_picture(image_path, width=Inches(6), height=Inches(1.5 * h))
             table1_title = document.add_paragraph("图" + img_num)

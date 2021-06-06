@@ -29,5 +29,7 @@ class Ui_Dialog(object):
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
+        Dialog.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)
+        Dialog.setWindowFlags(QtCore.Qt.WindowMinimizeButtonHint)
         self.content_lable.setText(_translate("Dialog", "TextLabel"))
 

@@ -99,7 +99,7 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
 
     }
 
-    limit = 5000
+    limit = 6000
     tmParamStr = str(start_time) + '|' + str(end_time) + "|" + str(mid) + "&" + str(telemetry_num) + '&' + str(
         telemetry_id) + '&0|'
     form_data = {

@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QDialog
 from PyQt5 import QtCore
+from PyQt5.QtCore import Qt
 
 from progress import Ui_Dialog
 
@@ -32,5 +33,7 @@ class MyProgress(QDialog, Ui_Dialog):
 
     def hideEvent(self, *args, **kwargs):
         self.isShow = False
+
+
 
 

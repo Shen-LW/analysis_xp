@@ -23,6 +23,9 @@
    <string notr="true">background-color: rgb(255, 255, 255);
 margin: 0px;</string>
   </property>
+  <property name="locale">
+   <locale language="Chinese" country="HongKong"/>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
@@ -300,6 +303,9 @@ background-color: rgb(226,226,226);</string>
        <property name="styleSheet">
         <string notr="true">font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
+       <property name="locale">
+        <locale language="Chinese" country="China"/>
+       </property>
        <property name="dateTime">
         <datetime>
          <hour>0</hour>
@@ -316,6 +322,12 @@ background-color: rgb(226,226,226);</string>
          <month>11</month>
          <day>12</day>
         </date>
+       </property>
+       <property name="displayFormat">
+        <string>yyyy/MM/dd HH:mm</string>
+       </property>
+       <property name="timeSpec">
+        <enum>Qt::TimeZone</enum>
        </property>
       </widget>
       <widget class="QLabel" name="label_7">
@@ -368,6 +380,12 @@ background-color: rgb(226,226,226);</string>
        <property name="styleSheet">
         <string notr="true">font: 10pt &quot;Microsoft YaHei UI&quot;;</string>
        </property>
+       <property name="locale">
+        <locale language="Chinese" country="China"/>
+       </property>
+       <property name="frame">
+        <bool>true</bool>
+       </property>
        <property name="dateTime">
         <datetime>
          <hour>0</hour>
@@ -377,6 +395,15 @@ background-color: rgb(226,226,226);</string>
          <month>10</month>
          <day>11</day>
         </datetime>
+       </property>
+       <property name="displayFormat">
+        <string notr="true">yyyy/MM/dd HH:mm</string>
+       </property>
+       <property name="calendarPopup">
+        <bool>false</bool>
+       </property>
+       <property name="timeSpec">
+        <enum>Qt::TimeZone</enum>
        </property>
       </widget>
       <widget class="QLineEdit" name="excel_path_edit">

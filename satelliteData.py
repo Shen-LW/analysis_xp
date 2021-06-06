@@ -58,14 +58,18 @@ class SatelliteData:
         '''
         self.dataHead['status'] = '爬取成功'
         with open(self.file_path, 'w', encoding='gbk') as f:
-            head = str(self.dataHead['status']) + '||' + str(self.dataHead['telemetry_name']) + '||' + str(
-                self.dataHead['telemetry_num']) + '||' + str(self.dataHead['normal_range']) + '||' + str(
-                self.dataHead['telemetry_source']) + '||' + str(self.dataHead['img_num']) + '||' + str(
-                self.dataHead['table_num']) + '||' + str(self.dataHead['params_one']) + '||' + str(
-                self.dataHead['params_two']) + '||' + str(self.dataHead['params_three']) + '||' + str(
-                self.dataHead['params_four']) + '||' + str(self.dataHead['start_time']) + '||' + str(
-                self.dataHead['end_time']) + '\n'
+            head = self.get_headline()
             f.write(head)
+
+    def get_headline(self):
+        head = str(self.dataHead['status']) + '||' + str(self.dataHead['telemetry_name']) + '||' + str(
+            self.dataHead['telemetry_num']) + '||' + str(self.dataHead['normal_range']) + '||' + str(
+            self.dataHead['telemetry_source']) + '||' + str(self.dataHead['img_num']) + '||' + str(
+            self.dataHead['table_num']) + '||' + str(self.dataHead['params_one']) + '||' + str(
+            self.dataHead['params_two']) + '||' + str(self.dataHead['params_three']) + '||' + str(
+            self.dataHead['params_four']) + '||' + str(self.dataHead['start_time']) + '||' + str(
+            self.dataHead['end_time']) + '\n'
+        return head
 
     def reload(self, file_path):
         '''
@@ -157,10 +161,10 @@ class SatelliteData:
         '''
         if cache:
             resampling_file_path = cache['file_path']
-            content = '---缓存数据加载中---'
+            content = '---' + self.dataHead['telemetry_num'] + '缓存数据加载中---'
         else:
             resampling_file_path = self.file_path
-            content = '---原始数据加载中---'
+            content = '---' + self.dataHead['telemetry_num'] + '原始数据加载中---'
 
         progress.setContent("进度", content)
         progress.setValue(1)
@@ -302,7 +306,7 @@ class SatelliteData:
             new_cache_f = open(new_cache_file, 'w', encoding='gbk')
 
             source_line = source_f.readline()  # 跳过head行
-            new_cache_f.write(source_line)
+            new_cache_f.write(self.get_headline())
 
             progress_index = 0
             progress_number = self.bufcount(choice_file) - 1
@@ -440,7 +444,7 @@ class SatelliteData:
         progress.show()
         QApplication.processEvents()
         for i in range(number):
-            if i % 10000 == 0:
+            if i % 2000 == 0:
                 progress.setValue((i / number) * 100)
                 progress.show()
                 QApplication.processEvents()
@@ -537,7 +541,7 @@ class SatelliteData:
 
         correct_index_list.sort()
         correct_index_list.reverse()
-        print(len(correct_index_list))
+        print('correct_index_list_len:', len(correct_index_list))
         progress.hide()
 
         # 剔除野点, 保存缓存文件
@@ -554,7 +558,7 @@ class SatelliteData:
             new_cache_f = open(new_cache_file, 'w', encoding='gbk')
 
             source_line = source_f.readline()  # 跳过head行
-            new_cache_f.write(source_line)
+            new_cache_f.write(self.get_headline())
             progress.setContent("进度", '---野点剔除中---')
             progress.setValue(0)
             progress.show()
