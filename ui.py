@@ -400,7 +400,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
 
-        if '未爬取' not in [item.dataHead['status'] for item in self.excel_data]:
+        if '未读取' not in [item.dataHead['status'] for item in self.excel_data]:
             self.crawl_status = False
             # 切换到数据分析标签，并填充数据
             self.hidden_frame('data_analysis')
@@ -422,6 +422,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
 
+        # 判断是否存在需要爬取的条目
+        if not [star for star in self.excel_data if star.dataHead['status'] == '未读取']:
+            self.crawl_status = False
+            # 切换到数据分析标签，并填充数据
+            self.hidden_frame('data_analysis')
+            self.update_talbe2()
+            return
+
+
         # 检查各个控件参数
         username = self.username_edit.text()
         password = self.password_edit.text()
@@ -435,8 +444,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         #     return
 
         # todo: 发布前记得复原
-        self.config.change_login(self.username_edit.text(), self.password_edit.text())
-        # # 判断账号密码是否正确
+        # self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # 判断账号密码是否正确
         # try:
         #     is_login = check_login(username, password)
         # except Exception as e:
@@ -704,7 +713,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def zoom_out(self):
         # 默认缩放倍率为1
-        scale = 1
+        scale = 2
         select_range = self.r_pw.roi_range
         star_data_list = list(self.manual_item.star_data.keys())
         left_stamp = self.timestr2timestamp(star_data_list[0])

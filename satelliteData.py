@@ -50,13 +50,13 @@ class SatelliteData:
             self.dataHead = dataHead
             self.file_path = file_path
 
-    # 读取数据头信息
+    # 写入数据头信息
     def write_dataHead(self):
         '''
         初始化时，先写入文件头
         :return:
         '''
-        self.dataHead['status'] = '爬取成功'
+        self.dataHead['status'] = '读取成功'
         with open(self.file_path, 'w', encoding='gbk') as f:
             head = self.get_headline()
             f.write(head)
