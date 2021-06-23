@@ -193,7 +193,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.l_widget.setLayout(l_plot_layout)  # 设置K线图部件的布局层
         l_date_axis = TimeAxisItem(orientation='bottom')
         self.l_pw = MyPlotWidget(self, axisItems={'bottom': l_date_axis})  # 创建一个绘图控件
-        self.l_pw.plotItem.setMouseEnabled(y=False)
+        self.l_pw.plotItem.setMouseEnabled(x=False)
         self.l_pw.showGrid(x=True, y=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
         self.l_widget.layout().addWidget(self.l_pw)
@@ -203,7 +203,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_widget.setLayout(r_plot_layout)  # 设置K线图部件的布局层
         r_date_axis = TimeAxisItem(orientation='bottom')
         self.r_pw = MyPlotWidget(self, axisItems={'bottom': r_date_axis})  # 创建一个绘图控件
-        self.r_pw.plotItem.setMouseEnabled(y=False)
+        self.r_pw.plotItem.setMouseEnabled(x=False)
         self.r_pw.showGrid(x=True, y=True)
         # 要将pyqtgraph的图形添加到pyqt5的部件中，我们首先要做的就是将pyqtgraph的绘图方式由window改为widget。PlotWidget方法就是通过widget方法进行绘图的
         self.r_widget.layout().addWidget(self.r_pw)
@@ -412,7 +412,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def crawl(self):
         if not self.excel_data:
             message_box = MyMessageBox()
-            message_box.setContent("参数缺失", "未导入任何爬读取参数")
+            message_box.setContent("参数缺失", "未导入任何读取参数")
             message_box.exec_()
             return
 
@@ -436,32 +436,32 @@ class UiTest(QMainWindow, Ui_MainWindow):
         model = self.model_edit.text()
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
-        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-            message_box = MyMessageBox()
-            message_box.setContent("参数缺失", "请完善参数信息")
-            message_box.exec_()
-            return
+        # if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("参数缺失", "请完善参数信息")
+        #     message_box.exec_()
+        #     return
 
         # todo: 发布前记得复原
         # self.config.change_login(self.username_edit.text(), self.password_edit.text())
         # 判断账号密码是否正确
-        try:
-            is_login = check_login(username, password)
-        except Exception as e:
-            print('错误内容', e)
-            message_box = MyMessageBox()
-            message_box.setContent("登录失败", "网络连接失败")
-            message_box.exec_()
-            return
-
-        if not is_login:
-            message_box = MyMessageBox()
-            message_box.setContent("读取失败", "账号或密码错误")
-            message_box.exec_()
-            return
-        else:
-            # 保存账户和密码
-            self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # try:
+        #     is_login = check_login(username, password)
+        # except Exception as e:
+        #     print('错误内容', e)
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("登录失败", "网络连接失败")
+        #     message_box.exec_()
+        #     return
+        #
+        # if not is_login:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("读取失败", "账号或密码错误")
+        #     message_box.exec_()
+        #     return
+        # else:
+        #     # 保存账户和密码
+        #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
         self.crawl_status = True
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
@@ -500,6 +500,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         :param r:
         :return:
         '''
+
+        start = time.time()
+
         self.fileinfo_table_2.selectRow(r)
         self.update_choice_parms()
         self.manual_item = self.excel_data[r]
@@ -565,6 +568,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_pw.roi_range = None
         self.r_pw.autoRange()
         self.l_pw.autoRange()
+
+        end = time.time()
+        print('手动踢野加载耗时: ', end - start)
 
     def select_row(self, r):
         pass

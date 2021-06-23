@@ -114,7 +114,7 @@ class SatelliteData:
 
 
     def read_line(self, f, whence, line_index):
-        f.seek(line_index * 46 + whence)
+        f.seek(line_index * 43 + whence)
         line = f.readline()
         line = line.replace('\n', '')
         if line == '':
@@ -215,19 +215,23 @@ class SatelliteData:
                 progress.setValue(50)
                 progress.show()
                 QApplication.processEvents()
-                while line:
-                    line = f.readline()
-                    line = line.replace('\n', '')
-                    if line == '':
-                        continue
-                    key, value = line.split('||')
-                    value = float(value)
-                    if key < start_time:
-                        continue
-                    elif key > end_time:
+                while 1:
+                    tmp_lines = f.readlines(100 * 1024 * 1024)
+                    if not tmp_lines:
                         break
-                    else:
-                        star_data[key] = float(value)
+                    for line in tmp_lines:
+                        line = f.readline()
+                        line = line.replace('\n', '')
+                        if line == '':
+                            continue
+                        key, value = line.split('||')
+                        value = float(value)
+                        if key < start_time:
+                            continue
+                        elif key > end_time:
+                            break
+                        else:
+                            star_data[key] = float(value)
             else:
                 min_point = None
                 max_point = None
@@ -288,7 +292,7 @@ class SatelliteData:
         :param progress: 进度条
         :return:
         '''
-
+        start = time.time()
         progress.setContent("进度", '手动剔野中---')
         progress.setValue(1)
         progress.show()
@@ -346,6 +350,9 @@ class SatelliteData:
             new_cache_f.close()
             progress.setValue(100)
             progress.hide()
+
+        end = time.time()
+        print('手动踢野耗时: ', end - start)
 
 
 
@@ -470,8 +477,8 @@ class SatelliteData:
                             curr_point_time = datetime.datetime.strptime(curr_point[0], "%Y-%m-%d %H:%M:%S.%f")
                             left_normal_point_time = datetime.datetime.strptime(left_normal_point[0],
                                                                                 "%Y-%m-%d %H:%M:%S.%f")
-                            if (left_normal_point_time - curr_point_time) > datetime.timedelta(seconds=600):
-                                point_struct["left_status"] = 0
+                            # if (left_normal_point_time - curr_point_time) > datetime.timedelta(seconds=600):
+                            #     point_struct["left_status"] = 0
                             # 判断变化率
                             space = left_normal_point_time - curr_point_time
                             space_s = space.seconds * 1000000 + space.microseconds
@@ -484,8 +491,8 @@ class SatelliteData:
                                     # befor_outlier_point = tmp_chice_data[point_struct["left_outlier"]]
                                     befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
                                                                                           "%Y-%m-%d %H:%M:%S.%f")
-                                    if (befor_outlier_point_time - curr_point_time) > datetime.timedelta(seconds=600):
-                                        point_struct["left_status"] = 0
+                                    # if (befor_outlier_point_time - curr_point_time) > datetime.timedelta(seconds=600):
+                                    #     point_struct["left_status"] = 0
                                 else:
                                     point_struct["left_outlier"] = point_struct["left"]
                             else:
@@ -513,8 +520,8 @@ class SatelliteData:
                             curr_point_time = datetime.datetime.strptime(curr_point[0], "%Y-%m-%d %H:%M:%S.%f")
                             right_normal_point_time = datetime.datetime.strptime(right_normal_point[0],
                                                                                  "%Y-%m-%d %H:%M:%S.%f")
-                            if (curr_point_time - right_normal_point_time) > datetime.timedelta(seconds=600):
-                                point_struct["right_status"] = 0
+                            # if (curr_point_time - right_normal_point_time) > datetime.timedelta(seconds=600):
+                            #     point_struct["right_status"] = 0
                             # 判断变化率
                             space = curr_point_time - right_normal_point_time
                             space_s = space.seconds * 1000000 + space.microseconds
@@ -527,8 +534,8 @@ class SatelliteData:
                                     # befor_outlier_point = tmp_chice_data[point_struct["right_outlier"]]
                                     befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
                                                                                           "%Y-%m-%d %H:%M:%S.%f")
-                                    if (curr_point_time - befor_outlier_point_time) > datetime.timedelta(seconds=600):
-                                        point_struct["right_status"] = 0
+                                    # if (curr_point_time - befor_outlier_point_time) > datetime.timedelta(seconds=600):
+                                    #     point_struct["right_status"] = 0
                                 else:
                                     point_struct["right_outlier"] = point_struct["right"]
                             else:
@@ -566,7 +573,10 @@ class SatelliteData:
             progress_number = self.bufcount(choice_file) - 1
             cache_lines = []  # 满10000行再开始写入，加快速度
             index = -1
-            cor_index = correct_index_list.pop()
+            if correct_index_list:
+                cor_index = correct_index_list.pop()
+            else:
+                cor_index = -1  # 无野点
             while source_line:
                 source_line = source_f.readline()
                 index = index + 1

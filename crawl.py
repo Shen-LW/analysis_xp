@@ -130,6 +130,7 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
             form_data["tmParamStr"] = str(new_start_time) + '|' + str(end_time) + "|" + str(mid) + "&" + str(
                 telemetry_num) + '&' + str(telemetry_id) + '&0|'
 
+        items = items[:-1]  # 起止时间会导致一个数据的重复
         tmp_data = parse_data(items)
         satellite_data.add_data(tmp_data)
         del items
@@ -215,9 +216,7 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
         d = '-'.join([i if len(i) > 1 else '0' + i for i in d.split('-')])
         h = s[0] if len(s[0]) == 2 else '0' + s[0]
         m = s[1]
-        s = '00000'
         new_time = d + ' ' + h + ':' + m + ':00.00000'
-
         new_time = datetime.datetime.strptime(new_time, "%Y-%m-%d %H:%M:%S.%f")
         return new_time
 
@@ -296,7 +295,7 @@ def parse_data(items):
         new_v = '0.00000000000000'
         for k, v in item.items():
             if k == 'T0':
-                new_k = v
+                new_k = v[:23]
             else:
                 n_v = str(v) + '0' * (16 - len(str(v)))
                 v = n_v[:16]
