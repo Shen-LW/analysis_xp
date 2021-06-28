@@ -472,10 +472,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.thread_list = []
         for satellite_data in self.excel_data:
             if satellite_data.dataHead['status'] == '未读取':
+                # 更新可能修改的起止时间
                 create_time_1 = self.trans_data_time(create_time)
                 end_time_1 = self.trans_data_time(end_time)
+                file_path = 'tmp/data/' + satellite_data.dataHead['telemetry_num'] + '_' + trans_time(create_time)[:-5] + '-' + trans_time(
+                    end_time)[:-5] + '.tmp'
                 satellite_data.dataHead['start_time'] = create_time_1
                 satellite_data.dataHead['end_time'] = end_time_1
+                satellite_data.file_path = file_path
                 tmp_thread = CrawlThread(satellite_data, username, password, model, create_time, end_time)
                 tmp_thread._signal.connect(self.crawl_callback)
                 self.thread_list.append(tmp_thread)
@@ -1043,6 +1047,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         # 源包剔野
         # source = {"source": {"index": "value"}}
+        start = time.time()
         source_type = collections.OrderedDict()
         for index, star in tmp_data.items():
             dataHead = star.dataHead
@@ -1054,12 +1059,16 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         for type, star_list in source_type.items():
             self.source_choice(star_list)
+        end = time.time()
+        print('源包剔野耗时: ', end - start)
 
         # 阈值剔野
+        start = time.time()
         for index, star in tmp_data.items():
             if self.check_choice('threshold', star.dataHead['params_four']):
                 self.threshold_choice(index, star)
-
+        end = time.time()
+        print('阈值剔野耗时: ', end - start)
         # 变化率剔野和手动剔野已合并
 
         # 修改剔野状态
@@ -1118,6 +1127,33 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 # 重新选择自动剔野项
                 self.change_auto_choice_index(1)
 
+
+    def tmp_write(self, cache_size, star, source_f, out_f):
+        source_f.readline()
+        star.dataHead['params_one'] = '[-0.5, 0.5]'
+        star.dataHead['params_two'] = '[-0.5, 0.5]'
+        dataHead = star.dataHead
+        head = str(dataHead['status']) + '||' + str(dataHead['telemetry_name']) + '||' + str(
+            dataHead['telemetry_num']) + '||' + str(dataHead['normal_range']) + '||' + str(
+            dataHead['telemetry_source']) + '||' + str(dataHead['img_num']) + '||' + str(
+            dataHead['table_num']) + '||' + str(dataHead['params_one']) + '||' + str(
+            dataHead['params_two']) + '||' + str(dataHead['params_three']) + '||' + str(
+            dataHead['params_four']) + '||' + str(dataHead['start_time']) + '||' + str(
+            dataHead['end_time']) + '\n'
+        out_f.write(head)
+
+        while 1:
+            source_lines = source_f.readlines(cache_size)
+            if not source_lines:
+                source_f.close()
+                out_f.close()
+                break
+            out_f.writelines(source_lines)
+
+
+
+
+
     def source_choice(self, star_list):
         # {"index": "star"}
         # 长度小于5，直接返回
@@ -1128,7 +1164,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.progress.setValue(0)
         self.progress.show()
         QApplication.processEvents()
-        # todo 后期可以考虑优化这里
+        # todo 在这里已经耗费了10个工时，没能找到特别好的优化方式，耗时主要是在文件的读取和写入
         # 获取选择文件中，数据最多的行数作为循环次数. 同时创建文件
         point_total = 0
         source_f_list = []
@@ -1279,7 +1315,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         tmp_f = open(tmp_file_name, 'w', encoding='gbk')
         source_line = source_f.readline()  # 跳过head行
         tmp_f.write(star.get_headline())
-        self.progress.setContent("进度", '---' + star.dataHead['telemetry_num'] +'阈值剔野中---')
+        self.progress.setContent("进度", '---' + star.dataHead['telemetry_num'] + '阈值剔野中---')
         self.progress.setValue(0)
         self.progress.show()
         QApplication.processEvents()
@@ -1287,26 +1323,29 @@ class UiTest(QMainWindow, Ui_MainWindow):
         progress_number = star.bufcount(star.file_path) - 1
         cache_lines = []  # 满10000行再开始写入，加快速度
         progress_index = 0
-        while source_line:
-            source_line = source_f.readline()
-            progress_index = progress_index + 1
-            line = source_line.replace('\n', '')
-            if line == '':
-                continue
-            else:
-                time_str, v = line.split('||')
-                if float(v) < float(threshold[0]) or float(v) > float(threshold[1]):
+        while 1:
+            tmp_source_lines = source_f.readlines(100 * 1024 * 1024)
+            if not tmp_source_lines:
+                break
+            for source_line in tmp_source_lines:
+                progress_index = progress_index + 1
+                line = source_line.replace('\n', '')
+                if line == '':
                     continue
-                cache_lines.append(source_line)
+                else:
+                    time_str, v = line.split('||')
+                    if float(v) < float(threshold[0]) or float(v) > float(threshold[1]):
+                        continue
+                    cache_lines.append(source_line)
 
-            if len(cache_lines) > 10000:
-                tmp_f.writelines(cache_lines)
-                tmp_f.flush()
-                cache_lines.clear()
-                # del cache_lines
-                self.progress.setValue((progress_index / progress_number) * 100)
-                self.progress.show()
-                QApplication.processEvents()
+                if len(cache_lines) > 100000:
+                    tmp_f.writelines(cache_lines)
+                    tmp_f.flush()
+                    cache_lines.clear()
+                    # del cache_lines
+                    self.progress.setValue((progress_index / progress_number) * 100)
+                    self.progress.show()
+                    QApplication.processEvents()
 
         if cache_lines:
             tmp_f.writelines(cache_lines)
@@ -1325,7 +1364,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def check_choice(self, module_name, params_four):
         params = params_four.replace("(", '').replace("（", '').replace(')', '').replace('）', ''). \
-            replace(' ', '').replace('，', ',')
+            replace(' ', '').replace('，', ',').replace('[', '').replace(']', '').replace('【', '').replace('】', '')
         params = params.split(',')
         if len(params) != 3:
             return False

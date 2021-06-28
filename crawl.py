@@ -229,7 +229,7 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
         ii = ii + 1
         min_value = random.randint(-1000, 0) / 1000
         max_value = random.randint(0, 1000) / 1000
-        next_time = start_time + datetime.timedelta(minutes=10)
+        next_time = start_time + datetime.timedelta(minutes=240)
         start_time_str = str(start_time) + '.454'
         if next_time < end_time:
             end_time_str = str(next_time) + '.454'

@@ -96,7 +96,6 @@ class SatelliteData:
                 'start_time': start_time,
                 'end_time': end_time
             }
-
             self.dataHead = dataHead
 
     def add_data(self, data):
@@ -220,7 +219,6 @@ class SatelliteData:
                     if not tmp_lines:
                         break
                     for line in tmp_lines:
-                        line = f.readline()
                         line = line.replace('\n', '')
                         if line == '':
                             continue
@@ -235,43 +233,45 @@ class SatelliteData:
             else:
                 min_point = None
                 max_point = None
-                # todo 这个循环应该还可以有优化的地方
                 progress_index = 0
-                while line:
-                    line = f.readline()
-                    line = line.replace('\n', '')
-                    if line == '':
-                        continue
-                    key, value = line.split('||')
-                    value = float(value)
-                    if key < start_time:
-                        continue
-                    elif next_time > end_time:
+                while 1:
+                    tmp_lines = f.readlines(100 * 1024 * 1024)
+                    if not tmp_lines:
                         break
-                    elif key < next_time:
-                        if min_point is None:
-                            min_point = [key, value]
-                        else:
-                            if min_point is None or value < min_point[1]:
+                    for line in tmp_lines:
+                        line = line.replace('\n', '')
+                        if line == '':
+                            continue
+                        key, value = line.split('||')
+                        value = float(value)
+                        if key < start_time:
+                            continue
+                        elif next_time > end_time:
+                            break
+                        elif key < next_time:
+                            if min_point is None:
                                 min_point = [key, value]
-                            elif max_point is None or value > max_point[1]:
-                                max_point = [key, value]
-                    else:
-                        next_time = self._get_next_time(next_time, sampling_grade)
-                        if min_point is not None and max_point is not None:
-                            # 考虑最大最小值两者的时间先后
-                            if min_point[0] < max_point[0]:
-                                star_data[min_point[0]] = min_point[1]
-                                star_data[max_point[0]] = max_point[1]
                             else:
-                                star_data[max_point[0]] = max_point[1]
-                                star_data[min_point[0]] = min_point[1]
-                        min_point = None
-                        max_point = None
-                        progress.setValue((progress_index / progress_number) * 100)
-                        progress.show()
-                        QApplication.processEvents()
-                        progress_index = progress_index + 1
+                                if min_point is None or value < min_point[1]:
+                                    min_point = [key, value]
+                                elif max_point is None or value > max_point[1]:
+                                    max_point = [key, value]
+                        else:
+                            next_time = self._get_next_time(next_time, sampling_grade)
+                            if min_point is not None and max_point is not None:
+                                # 考虑最大最小值两者的时间先后
+                                if min_point[0] < max_point[0]:
+                                    star_data[min_point[0]] = min_point[1]
+                                    star_data[max_point[0]] = max_point[1]
+                                else:
+                                    star_data[max_point[0]] = max_point[1]
+                                    star_data[min_point[0]] = min_point[1]
+                            min_point = None
+                            max_point = None
+                            progress_index = progress_index + 1
+                            progress.setValue((progress_index / progress_number) * 100)
+                            progress.show()
+                            QApplication.processEvents()
         finally:
             f.close()
         if cache:
@@ -313,28 +313,34 @@ class SatelliteData:
             new_cache_f.write(self.get_headline())
 
             progress_index = 0
-            progress_number = self.bufcount(choice_file) - 1
+            # progress_number = self.bufcount(choice_file) - 1
+            progress_number = os.path.getsize(choice_file) / 42
             cache_lines = []  # 满10000行再开始写入，加快速度
-            while source_line:
-                source_line = source_f.readline()
-                line = source_line.replace('\n', '')
-                if line == '':
-                    continue
-                key, value = line.split('||')
-                value = float(value)
-                if key >= left_time and key <= right_time and value >= min_value and value <= max_value:
-                    continue
-                else:
-                    cache_lines.append(source_line)
-                if len(cache_lines) > 10000:
-                    new_cache_f.writelines(cache_lines)
-                    new_cache_f.flush()
-                    cache_lines.clear()
-                    # del cache_lines
-                    progress.setValue((progress_index / progress_number) * 100)
-                    progress.show()
-                    QApplication.processEvents()
-                    progress_index = progress_index + 10000
+            while 1:
+                tmp_source_lines = source_f.readlines(100 * 1024 * 1024)
+                if not tmp_source_lines:
+                    break
+                for source_line in tmp_source_lines:
+                    progress_index = progress_index + 1
+                    line = source_line.replace('\n', '')
+                    if line == '':
+                        continue
+                    key, value = line.split('||')
+                    value = float(value)
+                    if key >= left_time and key <= right_time and value >= min_value and value <= max_value:
+                        continue
+                    else:
+                        cache_lines.append(source_line)
+                    if len(cache_lines) > 100000:
+                        new_cache_f.writelines(cache_lines)
+                        new_cache_f.flush()
+                        cache_lines.clear()
+                        # del cache_lines
+                        progress.setValue((progress_index / progress_number) * 100)
+                        progress.show()
+                        QApplication.processEvents()
+
+
             if cache_lines:
                 new_cache_f.writelines(cache_lines)
                 new_cache_f.flush()
@@ -359,19 +365,22 @@ class SatelliteData:
 
     def rate_choice(self, base_point, normal_rate, progress):
         # 获取基准点对应的时间, 统一取右边值
+        startTime = time.time()
+        print('变化率踢野开始', datetime.datetime.now())
         # 如果数据点太多的话，可以考虑用二叉搜索或者快速搜索
         if self.cache_list:
             filename = self.cache_list[-1]['file_path']
         else:
             filename = self.file_path
-        point_total = self.bufcount(filename) - 1
-        start_time = datetime.datetime.strptime(self.dataHead['start_time'], "%Y-%m-%d %H:%M:%S.%f")
-        end_time = datetime.datetime.strptime(self.dataHead['end_time'], "%Y-%m-%d %H:%M:%S.%f")
 
         progress.setContent("进度", '---数据准备中---')
         progress.setValue(0)
         progress.show()
         QApplication.processEvents()
+
+        point_total = self.bufcount(filename) - 1
+        start_time = datetime.datetime.strptime(self.dataHead['start_time'], "%Y-%m-%d %H:%M:%S.%f")
+        end_time = datetime.datetime.strptime(self.dataHead['end_time'], "%Y-%m-%d %H:%M:%S.%f")
 
         f = open(filename, 'r', encoding='gbk')
         f.readline()
@@ -419,6 +428,8 @@ class SatelliteData:
                 "right_outlier": None,  # 右边野点的最后位置
                 "left_normal": index,  # 左边最后一个正常点
                 "right_normal": index,  # 右边最后一个正常点
+                "left_normal_point": None,
+                "right_normal_point": None
             })
 
         # 对结构数组进行扩增，避免循环中的越界判断
@@ -430,7 +441,9 @@ class SatelliteData:
             "left_outlier": None,
             "right_outlier": None,
             "left_normal": None,
-            "right_normal": None
+            "right_normal": None,
+            "left_normal_point": None,
+            "right_normal_point": None
         })
         base_point_struct_list.append({
             "left_status": 0,
@@ -440,18 +453,41 @@ class SatelliteData:
             "left_outlier": None,
             "right_outlier": None,
             "left_normal": None,
-            "right_normal": None
+            "right_normal": None,
+            "left_normal_point": None,
+            "right_normal_point": None
         })
 
         # 开始剔野
         correct_index_list = []  # 需要剔除的野点
+        cache_size = int(2000000 / (len(correct_base_point) - 2))  # 总共默认缓存200万行数
+        cache_lines = {}  # 缓存的行， key: line_index, value: line
+        for n in range(1, len(base_point_struct_list) - 1):
+            point_struct = base_point_struct_list[n]
+            # 跳转到固定行
+            start_line_index = point_struct['left_normal'] - cache_size
+            f.seek(start_line_index * 43 + whence)
+            source_lines = f.readlines(cache_size * 42 - 1)
+            if not source_lines:
+                continue
+            for offset_index, line in enumerate(source_lines):
+                key, value = line.replace('\n', '').split('||')
+                value = float(value)
+                cache_lines[start_line_index + offset_index] = (key, value)
+        def update_cache_lines(line_index, direct):
+            if direct == 'left':
+                pass
+            elif direct == 'right':
+                pass
+
+
         number = math.ceil(point_total / (len(base_point_struct_list) - 2))  # 外部循环次数，每次对各个基准点处理一次
         progress.setContent("进度", '---变化率剔野中---')
         progress.setValue(0)
         progress.show()
         QApplication.processEvents()
         for i in range(number):
-            if i % 2000 == 0:
+            if i % 10000 == 0:
                 progress.setValue((i / number) * 100)
                 progress.show()
                 QApplication.processEvents()
@@ -468,6 +504,8 @@ class SatelliteData:
                         if point_struct["left"] >= before_point_struct['right']:
                             curr_point = self.read_line(f, whence, point_struct["left"])
                             left_normal_point = self.read_line(f, whence, point_struct["left_normal"])
+                            curr_point = cache_lines.get(point_struct["left"])
+                            if curr_point
                             if curr_point[0] is None or left_normal_point[0] is None:
                                 continue
                             # curr_point = tmp_chice_data[point_struct["left"]]
@@ -611,6 +649,8 @@ class SatelliteData:
             new_cache_f.close()
             progress.setValue(100)
             progress.hide()
+        endTime = time.time()
+        print('变化率踢野耗时', endTime - startTime)
         return True, None
 
     def rename_extension(self):
