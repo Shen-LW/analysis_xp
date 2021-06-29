@@ -366,7 +366,7 @@ class SatelliteData:
     def rate_choice(self, base_point, normal_rate, progress):
         # 获取基准点对应的时间, 统一取右边值
         startTime = time.time()
-        print('变化率踢野开始', datetime.datetime.now())
+        print('变化率剔野开始', datetime.datetime.now())
         # 如果数据点太多的话，可以考虑用二叉搜索或者快速搜索
         if self.cache_list:
             filename = self.cache_list[-1]['file_path']
@@ -460,35 +460,57 @@ class SatelliteData:
 
         # 开始剔野
         correct_index_list = []  # 需要剔除的野点
-        cache_size = int(2000000 / (len(correct_base_point) - 2))  # 总共默认缓存200万行数
+        cache_size = int(1000000 / len(correct_base_point))  # 总共默认缓存200万行数
         cache_lines = {}  # 缓存的行， key: line_index, value: line
+        # 提前缓存行
         for n in range(1, len(base_point_struct_list) - 1):
             point_struct = base_point_struct_list[n]
+            point_struct['left_normal_point'] = self.read_line(f, whence, point_struct["left_normal"])
+            point_struct['right_normal_point'] = self.read_line(f, whence, point_struct["right_normal"])
             # 跳转到固定行
             start_line_index = point_struct['left_normal'] - cache_size
+            if start_line_index < 0:
+                start_line_index = 0
+            if start_line_index >= point_total:
+                continue
             f.seek(start_line_index * 43 + whence)
-            source_lines = f.readlines(cache_size * 42 - 1)
+            source_lines = f.readlines(cache_size * 2 * 42 - 1)
             if not source_lines:
                 continue
             for offset_index, line in enumerate(source_lines):
                 key, value = line.replace('\n', '').split('||')
                 value = float(value)
                 cache_lines[start_line_index + offset_index] = (key, value)
+        # 更新缓存
         def update_cache_lines(line_index, direct):
             if direct == 'left':
-                pass
+                new_index = line_index - cache_size
+                if new_index < 0:
+                    new_index = 0
+                if new_index > point_total:
+                    return
+                f.seek(new_index * 43 + whence)
+                source_lines = f.readlines((cache_size + 2) * 42 -1)
+                for offset_index, line in enumerate(source_lines):
+                    key, value = line.replace('\n', '').split('||')
+                    value = float(value)
+                    cache_lines[new_index + offset_index] = (key, value)
             elif direct == 'right':
-                pass
-
+                f.seek(line_index * 43 + whence)
+                source_lines = f.readlines((cache_size + 2) * 42 - 1)
+                for offset_index, line in enumerate(source_lines):
+                    key, value = line.replace('\n', '').split('||')
+                    value = float(value)
+                    cache_lines[line_index + offset_index] = (key, value)
 
         number = math.ceil(point_total / (len(base_point_struct_list) - 2))  # 外部循环次数，每次对各个基准点处理一次
         progress.setContent("进度", '---变化率剔野中---')
         progress.setValue(0)
         progress.show()
         QApplication.processEvents()
-        for i in range(number):
+        for i in range(point_total):
             if i % 10000 == 0:
-                progress.setValue((i / number) * 100)
+                progress.setValue((i / point_total) * 100)
                 progress.show()
                 QApplication.processEvents()
             for n in range(1, len(base_point_struct_list) - 1):
@@ -502,10 +524,13 @@ class SatelliteData:
                         point_struct["left_status"] = 0
                     else:
                         if point_struct["left"] >= before_point_struct['right']:
-                            curr_point = self.read_line(f, whence, point_struct["left"])
-                            left_normal_point = self.read_line(f, whence, point_struct["left_normal"])
+                            # curr_point = self.read_line(f, whence, point_struct["left"])
+                            # left_normal_point = self.read_line(f, whence, point_struct["left_normal"])
                             curr_point = cache_lines.get(point_struct["left"])
-                            if curr_point
+                            if not curr_point:
+                                update_cache_lines(point_struct["left"], 'left')
+                                curr_point = cache_lines[point_struct["left"]]
+                            left_normal_point = point_struct['left_normal_point']
                             if curr_point[0] is None or left_normal_point[0] is None:
                                 continue
                             # curr_point = tmp_chice_data[point_struct["left"]]
@@ -536,7 +561,9 @@ class SatelliteData:
                             else:
                                 # 正常点
                                 point_struct["left_normal"] = point_struct["left"]
+                                point_struct["left_normal_point"] = curr_point
                                 point_struct["left_outlier"] = None
+                            del cache_lines[point_struct["left"]]
                             point_struct["left"] = point_struct["left"] - 1
                         else:
                             point_struct["left_status"] = 0
@@ -547,8 +574,14 @@ class SatelliteData:
                         point_struct["right_status"] = 0
                     else:
                         if point_struct["right"] <= after_point_struct['left']:
-                            curr_point = self.read_line(f, whence, point_struct["right"])
-                            right_normal_point = self.read_line(f, whence, point_struct["right_normal"])
+                            # curr_point = self.read_line(f, whence, point_struct["right"])
+                            # right_normal_point = self.read_line(f, whence, point_struct["right_normal"])
+                            curr_point = cache_lines.get(point_struct["right"])
+                            if not curr_point:
+                                update_cache_lines(point_struct["right"], 'right')
+                                curr_point = cache_lines[point_struct["right"]]
+                            right_normal_point = point_struct['right_normal_point']
+
                             if curr_point[0] is None or left_normal_point[0] is None:
                                 continue
                             # curr_point = tmp_chice_data[point_struct["right"]]
@@ -579,7 +612,9 @@ class SatelliteData:
                             else:
                                 # 正常点
                                 point_struct["right_normal"] = point_struct["right"]
+                                point_struct["right_normal_point"] = curr_point
                                 point_struct["right_outlier"] = None
+                            del cache_lines[point_struct["right"]]
                             point_struct["right"] = point_struct["right"] + 1
                         else:
                             point_struct["right_status"] = 0
