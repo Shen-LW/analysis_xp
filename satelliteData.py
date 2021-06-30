@@ -13,29 +13,6 @@ class SatelliteData:
     '''
     卫星数据类，负责下载数据的断点下载，状态保存，抽样，剔野操作标记等等功能
     '''
-    file_path = None
-    is_write_dataHead = False
-    dataHead = {
-        "status": None,
-        'telemetry_name': None,
-        'telemetry_num': None,
-        'normal_range': None,
-        'telemetry_source': None,
-        'img_num': None,
-        'table_num': None,
-        'params_one': None,
-        'params_two': None,
-        'params_three': None,
-        'params_four': None,
-        'start_time': None,
-        'end_time': None
-    }
-    star_cache_data = []
-    star_data = []
-    # 用于撤销的临时文件存储, item为file_path
-    cache_list = []
-    is_undo = False
-
 
     def __init__(self, file_path: str, dataHead: dict):
         '''
@@ -43,6 +20,29 @@ class SatelliteData:
         :param dataHead:
         :param file_path: 文件路径，在下载中为.tmp结尾，下载完成后为sDAT结尾
         '''
+        self.file_path = None
+        self.is_write_dataHead = False
+        self.dataHead = {
+            "status": None,
+            'telemetry_name': None,
+            'telemetry_num': None,
+            'normal_range': None,
+            'telemetry_source': None,
+            'img_num': None,
+            'table_num': None,
+            'params_one': None,
+            'params_two': None,
+            'params_three': None,
+            'params_four': None,
+            'start_time': None,
+            'end_time': None
+        }
+        self.star_cache_data = []
+        self.star_data = []
+        # 用于撤销的临时文件存储, item为file_path
+        self.cache_list = []
+        self.is_undo = False
+
         if dataHead is None:  # 重新加载已有数据
             self.file_path = file_path
             self.reload(file_path)
@@ -426,6 +426,8 @@ class SatelliteData:
                 "right": index + 1,  # 右边位置指针
                 "left_outlier": None,  # 左边野点的最后位置
                 "right_outlier": None,  # 右边野点的最后位置
+                "left_outlier_point": None,
+                "right_outlier_point": None,
                 "left_normal": index,  # 左边最后一个正常点
                 "right_normal": index,  # 右边最后一个正常点
                 "left_normal_point": None,
@@ -440,6 +442,8 @@ class SatelliteData:
             "right": 0,
             "left_outlier": None,
             "right_outlier": None,
+            "left_outlier_point": None,
+            "right_outlier_point": None,
             "left_normal": None,
             "right_normal": None,
             "left_normal_point": None,
@@ -452,6 +456,8 @@ class SatelliteData:
             "right": point_total,
             "left_outlier": None,
             "right_outlier": None,
+            "left_outlier_point": None,
+            "right_outlier_point": None,
             "left_normal": None,
             "right_normal": None,
             "left_normal_point": None,
@@ -459,6 +465,11 @@ class SatelliteData:
         })
 
         # 开始剔野
+        progress.setContent("进度", '---变化率剔野中---')
+        progress.setValue(0)
+        progress.show()
+        QApplication.processEvents()
+
         correct_index_list = []  # 需要剔除的野点
         cache_size = int(1000000 / len(correct_base_point))  # 总共默认缓存200万行数
         cache_lines = {}  # 缓存的行， key: line_index, value: line
@@ -504,10 +515,7 @@ class SatelliteData:
                     cache_lines[line_index + offset_index] = (key, value)
 
         number = math.ceil(point_total / (len(base_point_struct_list) - 2))  # 外部循环次数，每次对各个基准点处理一次
-        progress.setContent("进度", '---变化率剔野中---')
-        progress.setValue(0)
-        progress.show()
-        QApplication.processEvents()
+        print(len(base_point_struct_list))
         for i in range(point_total):
             if i % 10000 == 0:
                 progress.setValue((i / point_total) * 100)
@@ -550,14 +558,17 @@ class SatelliteData:
                                 correct_index_list.append(point_struct["left"])
                                 # 判断野点数是否超过十分钟, 停止剔野
                                 if point_struct["left_outlier"]:
-                                    befor_outlier_point = self.read_line(f, whence, point_struct["left_outlier"])
+                                    pass
+                                    # befor_outlier_point = self.read_line(f, whence, point_struct["left_outlier"])
+                                    # befor_outlier_point = point_struct["left_outlier_point"]
                                     # befor_outlier_point = tmp_chice_data[point_struct["left_outlier"]]
-                                    befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
-                                                                                          "%Y-%m-%d %H:%M:%S.%f")
+                                    # befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
+                                    #                                                       "%Y-%m-%d %H:%M:%S.%f")
                                     # if (befor_outlier_point_time - curr_point_time) > datetime.timedelta(seconds=600):
                                     #     point_struct["left_status"] = 0
                                 else:
                                     point_struct["left_outlier"] = point_struct["left"]
+                                    point_struct['left_outlier_point'] = curr_point
                             else:
                                 # 正常点
                                 point_struct["left_normal"] = point_struct["left"]
@@ -581,8 +592,9 @@ class SatelliteData:
                                 update_cache_lines(point_struct["right"], 'right')
                                 curr_point = cache_lines[point_struct["right"]]
                             right_normal_point = point_struct['right_normal_point']
-
+                            left_normal_point = point_struct['left_normal_point']
                             if curr_point[0] is None or left_normal_point[0] is None:
+                                print('left_normal_point')
                                 continue
                             # curr_point = tmp_chice_data[point_struct["right"]]
                             # right_normal_point = tmp_chice_data[point_struct["right_normal"]]
@@ -601,14 +613,17 @@ class SatelliteData:
                                 correct_index_list.append(point_struct["right"])
                                 # 判断野点数是否超过十分钟, 停止剔野
                                 if point_struct["right_outlier"]:
-                                    befor_outlier_point = self.read_line(f, whence, point_struct["right_outlier"])
+                                    pass
+                                    # befor_outlier_point = self.read_line(f, whence, point_struct["right_outlier"])
+                                    # befor_outlier_point = point_struct['right_outlier_point']
                                     # befor_outlier_point = tmp_chice_data[point_struct["right_outlier"]]
-                                    befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
-                                                                                          "%Y-%m-%d %H:%M:%S.%f")
+                                    # befor_outlier_point_time = datetime.datetime.strptime(befor_outlier_point[0],
+                                    #                                                       "%Y-%m-%d %H:%M:%S.%f")
                                     # if (curr_point_time - befor_outlier_point_time) > datetime.timedelta(seconds=600):
                                     #     point_struct["right_status"] = 0
                                 else:
                                     point_struct["right_outlier"] = point_struct["right"]
+                                    point_struct["right_outlier_point"] = curr_point
                             else:
                                 # 正常点
                                 point_struct["right_normal"] = point_struct["right"]
@@ -618,7 +633,7 @@ class SatelliteData:
                             point_struct["right"] = point_struct["right"] + 1
                         else:
                             point_struct["right_status"] = 0
-
+        f.close()
         correct_index_list.sort()
         correct_index_list.reverse()
         print('correct_index_list_len:', len(correct_index_list))
