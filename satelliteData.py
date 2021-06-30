@@ -316,18 +316,24 @@ class SatelliteData:
             # progress_number = self.bufcount(choice_file) - 1
             progress_number = os.path.getsize(choice_file) / 42
             cache_lines = []  # 满10000行再开始写入，加快速度
+            is_end = False
             while 1:
                 tmp_source_lines = source_f.readlines(100 * 1024 * 1024)
                 if not tmp_source_lines:
                     break
-                for source_line in tmp_source_lines:
+                for index, source_line in enumerate(tmp_source_lines):
                     progress_index = progress_index + 1
                     line = source_line.replace('\n', '')
                     if line == '':
                         continue
                     key, value = line.split('||')
                     value = float(value)
-                    if key >= left_time and key <= right_time and value >= min_value and value <= max_value:
+                    if key < left_time:
+                        cache_lines.append(source_line)
+                    elif key > right_time:  # 已经越过右边界，剩下数据直接写入
+                        is_end = True
+                        break
+                    elif value >= min_value and value <= max_value:
                         continue
                     else:
                         cache_lines.append(source_line)
@@ -339,12 +345,28 @@ class SatelliteData:
                         progress.setValue((progress_index / progress_number) * 100)
                         progress.show()
                         QApplication.processEvents()
-
+                if is_end:
+                    progress_index = progress_index + len(tmp_source_lines[index:])
+                    cache_lines = cache_lines + tmp_source_lines[index:]
+                    break
 
             if cache_lines:
                 new_cache_f.writelines(cache_lines)
                 new_cache_f.flush()
                 cache_lines.clear()
+
+            if is_end:
+                # 越过右边界，剩下数据直接写入
+                while 1:
+                    tmp_source_lines = source_f.readlines(100 * 1024 * 1024)
+                    if not tmp_source_lines:
+                        break
+                    new_cache_f.writelines(tmp_source_lines)
+                    new_cache_f.flush()
+                    progress_index = progress_index + len(tmp_source_lines)
+                    progress.setValue((progress_index / progress_number) * 100)
+                    progress.show()
+                    QApplication.processEvents()
 
             star_data_list = list(self.star_data.keys())
             self.cache_list.append({'file_path': new_cache_file,
@@ -665,26 +687,30 @@ class SatelliteData:
                 cor_index = correct_index_list.pop()
             else:
                 cor_index = -1  # 无野点
-            while source_line:
-                source_line = source_f.readline()
-                index = index + 1
-                if index % 10000 == 0:
-                    progress.setValue((index / progress_number) * 100)
-                    progress.show()
-                    QApplication.processEvents()
-                line = source_line.replace('\n', '')
-                if line == '' or (index == cor_index):
-                    if correct_index_list:
-                        cor_index = correct_index_list.pop()
-                    continue
-                else:
-                    cache_lines.append(source_line)
 
-                if len(cache_lines) > 10000:
-                    new_cache_f.writelines(cache_lines)
-                    new_cache_f.flush()
-                    cache_lines.clear()
-                    # del cache_lines
+            while 1:
+                source_line_list = source_f.readlines(100 * 1024 * 1024)
+                if not source_line_list:
+                    break
+                for source_line in source_line_list:
+                    index = index + 1
+                    if index % 10000 == 0:
+                        progress.setValue((index / progress_number) * 100)
+                        progress.show()
+                        QApplication.processEvents()
+                    line = source_line.replace('\n', '')
+                    if line == '' or (index == cor_index):
+                        if correct_index_list:
+                            cor_index = correct_index_list.pop()
+                        continue
+                    else:
+                        cache_lines.append(source_line)
+
+                    if len(cache_lines) > 10000:
+                        new_cache_f.writelines(cache_lines)
+                        new_cache_f.flush()
+                        cache_lines.clear()
+
             if cache_lines:
                 new_cache_f.writelines(cache_lines)
                 new_cache_f.flush()
@@ -765,17 +791,18 @@ class SatelliteData:
         maxX = 0
         f = open(self.file_path, encoding='gbk')
         line = f.readline()
-        while line:
-            line = f.readline()
-            line = line.replace('\n', '')
-            if line == '':
+        while 1:
+            lines = f.readlines(100* 1024 * 1024)
+            if not lines:
                 break
-            time_str, v = line.split('||')
-            v = round(float(v), 3)
-            if v > maxX:
-                maxX = v
-            elif v < minX:
-                minX = v
-
+            for line in lines:
+                time_str, v = line.replace('\n', '').split('||')
+                v = round(float(v), 3)
+                if v > maxX:
+                    maxX = v
+                elif v < minX:
+                    minX = v
         return [minX, maxX]
+
+
 
