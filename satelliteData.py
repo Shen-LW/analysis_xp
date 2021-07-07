@@ -158,6 +158,7 @@ class SatelliteData:
         :param end_time:
         :return:
         '''
+        start = time.time()
         if cache:
             resampling_file_path = cache['file_path']
             content = '---' + self.dataHead['telemetry_num'] + '缓存数据加载中---'
@@ -204,11 +205,10 @@ class SatelliteData:
             # 大于1年， 每24小时抽样
             progress_number = space.days
             sampling_grade = 6
-
         star_data = collections.OrderedDict()
         try:
             f = open(resampling_file_path, 'r', encoding='gbk')
-            line = f.readline()  # 跳过head行
+            head = f.readline()  # 跳过head行
             next_time = self._get_next_time(start_time, sampling_grade)
             if next_time is None:  # None表示不抽样
                 progress.setValue(50)
@@ -239,11 +239,8 @@ class SatelliteData:
                     if not tmp_lines:
                         break
                     for line in tmp_lines:
-                        line = line.replace('\n', '')
-                        if line == '':
-                            continue
-                        key, value = line.split('||')
-                        value = float(value)
+                        key = line[:23]
+                        value = float(line[25:41])
                         if key < start_time:
                             continue
                         elif next_time > end_time:
@@ -321,13 +318,27 @@ class SatelliteData:
                 tmp_source_lines = source_f.readlines(100 * 1024 * 1024)
                 if not tmp_source_lines:
                     break
+
+                first_line = tmp_source_lines[0]
+                last_line = tmp_source_lines[-1]
+                firset_key, first_value = first_line.replace('\n', '').split('||')
+                last_key, last_value = last_line.replace('\n', '').split('||')
+                if firset_key > right_time or last_key < left_time:
+                    new_cache_f.writelines(cache_lines)
+                    new_cache_f.flush()
+                    cache_lines.clear()
+                    new_cache_f.writelines(tmp_source_lines)
+                    progress_index = progress_index + len(cache_lines) + len(tmp_source_lines)
+                    progress.setValue((progress_index / progress_number) * 100)
+                    progress.show()
+                    QApplication.processEvents()
+                    continue
+
                 for index, source_line in enumerate(tmp_source_lines):
                     progress_index = progress_index + 1
-                    line = source_line.replace('\n', '')
-                    if line == '':
-                        continue
-                    key, value = line.split('||')
+                    key, value = source_line.replace('\n', '').split('||')
                     value = float(value)
+
                     if key < left_time:
                         cache_lines.append(source_line)
                     elif key > right_time:  # 已经越过右边界，剩下数据直接写入
@@ -414,24 +425,32 @@ class SatelliteData:
         tmp_point = base_point.pop()
         tmp_point_str = str(tmp_point)
 
-        for index in range(point_total):
-            line = f.readline()
-            line = line.replace('\n', '')
-            if line == '':
-                continue
-            time_str, v = line.split('||')
-            if time_str >= tmp_point_str:
-                t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
-                correct_base_point.append((index, t))
-                if base_point:
-                    tmp_point = base_point.pop()
-                    tmp_point_str = str(tmp_point)
-                else:
-                    break
-            if index % 10000 == 0:
-                progress.setValue((index / point_total) * 100)
-                progress.show()
-                QApplication.processEvents()
+        index = -1
+        is_end = False
+        while 1:
+            t_lines = f.readlines(100 * 1024 * 1024)
+            if not t_lines:
+                break
+            for line in t_lines:
+                index = index + 1
+                time_str, v = line.replace('\n', '').split('||')
+                if time_str >= tmp_point_str:
+                    t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
+                    correct_base_point.append((index, t))
+                    if base_point:
+                        tmp_point = base_point.pop()
+                        tmp_point_str = str(tmp_point)
+                    else:
+                        is_end = True
+                        break
+                if index % 10000 == 0:
+                    progress.setValue((index / point_total) * 100)
+                    progress.show()
+                    QApplication.processEvents()
+            if is_end:
+                break
+
+
 
         if not correct_base_point:
             progress.hide()
