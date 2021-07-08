@@ -219,11 +219,8 @@ class SatelliteData:
                     if not tmp_lines:
                         break
                     for line in tmp_lines:
-                        line = line.replace('\n', '')
-                        if line == '':
-                            continue
-                        key, value = line.split('||')
-                        value = float(value)
+                        key = line[:23]
+                        value = float(line[25:41])
                         if key < start_time:
                             continue
                         elif key > end_time:
@@ -336,9 +333,8 @@ class SatelliteData:
 
                 for index, source_line in enumerate(tmp_source_lines):
                     progress_index = progress_index + 1
-                    key, value = source_line.replace('\n', '').split('||')
-                    value = float(value)
-
+                    key = source_line[:23]
+                    value = float(source_line[25:41])
                     if key < left_time:
                         cache_lines.append(source_line)
                     elif key > right_time:  # 已经越过右边界，剩下数据直接写入
@@ -424,7 +420,6 @@ class SatelliteData:
         correct_base_point = []
         tmp_point = base_point.pop()
         tmp_point_str = str(tmp_point)
-
         index = -1
         is_end = False
         while 1:
@@ -433,9 +428,11 @@ class SatelliteData:
                 break
             for line in t_lines:
                 index = index + 1
-                time_str, v = line.replace('\n', '').split('||')
+                # time_str, v = line.replace('\n', '').split('||')
+                time_str = line[:23]
                 if time_str >= tmp_point_str:
-                    t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
+                    t = self.init_datetime(time_str)
+                    # t = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S.%f")
                     correct_base_point.append((index, t))
                     if base_point:
                         tmp_point = base_point.pop()
@@ -450,13 +447,10 @@ class SatelliteData:
             if is_end:
                 break
 
-
-
         if not correct_base_point:
             progress.hide()
             f.close()
             return False, "未找到任何基准点"
-
         # 构建基准点结构数组
         base_point_struct_list = []
         for index, t in correct_base_point:
@@ -472,7 +466,9 @@ class SatelliteData:
                 "left_normal": index,  # 左边最后一个正常点
                 "right_normal": index,  # 右边最后一个正常点
                 "left_normal_point": None,
-                "right_normal_point": None
+                "left_normal_point_time": None,
+                "right_normal_point": None,
+                "right_normal_point_time": None
             })
 
         # 对结构数组进行扩增，避免循环中的越界判断
@@ -488,7 +484,9 @@ class SatelliteData:
             "left_normal": None,
             "right_normal": None,
             "left_normal_point": None,
-            "right_normal_point": None
+            "left_normal_point_time": None,
+            "right_normal_point": None,
+            "right_normal_point_time": None
         })
         base_point_struct_list.append({
             "left_status": 0,
@@ -502,7 +500,9 @@ class SatelliteData:
             "left_normal": None,
             "right_normal": None,
             "left_normal_point": None,
-            "right_normal_point": None
+            "left_normal_point_time": None,
+            "right_normal_point": None,
+            "right_normal_point_time":None
         })
 
         # 开始剔野
@@ -530,8 +530,8 @@ class SatelliteData:
             if not source_lines:
                 continue
             for offset_index, line in enumerate(source_lines):
-                key, value = line.replace('\n', '').split('||')
-                value = float(value)
+                key = line[:23]
+                value = float(line[25:41])
                 cache_lines[start_line_index + offset_index] = (key, value)
         # 更新缓存
         def update_cache_lines(line_index, direct):
@@ -544,22 +544,31 @@ class SatelliteData:
                 f.seek(new_index * 43 + whence)
                 source_lines = f.readlines((cache_size + 2) * 42 -1)
                 for offset_index, line in enumerate(source_lines):
-                    key, value = line.replace('\n', '').split('||')
-                    value = float(value)
+                    key = line[:23]
+                    value = float(line[25:41])
                     cache_lines[new_index + offset_index] = (key, value)
             elif direct == 'right':
                 f.seek(line_index * 43 + whence)
                 source_lines = f.readlines((cache_size + 2) * 42 - 1)
                 for offset_index, line in enumerate(source_lines):
-                    key, value = line.replace('\n', '').split('||')
-                    value = float(value)
+                    key = line[:23]
+                    value = float(line[25:41])
                     cache_lines[line_index + offset_index] = (key, value)
 
-        number = math.ceil(point_total / (len(base_point_struct_list) - 2))  # 外部循环次数，每次对各个基准点处理一次
+        left_margin = base_point_struct_list[1]["left"]
+        rigth_margin = point_total - base_point_struct_list[-2]["left"]
+        margin_max = left_margin if left_margin >= rigth_margin else rigth_margin
+        if len(base_point_struct_list) > 3:
+            for i in range(len(base_point_struct_list) - 3):
+                tmp_len = base_point_struct_list[i + 2]['left'] - base_point_struct_list[i + 1]['left']
+                if tmp_len > margin_max:
+                    margin_max = tmp_len
+        number = margin_max  # 外部循环最大次数
+        print(number)
         print(len(base_point_struct_list))
-        for i in range(point_total):
+        for i in range(number):
             if i % 10000 == 0:
-                progress.setValue((i / point_total) * 100)
+                progress.setValue((i / number) * 100)
                 progress.show()
                 QApplication.processEvents()
             for n in range(1, len(base_point_struct_list) - 1):
@@ -573,8 +582,6 @@ class SatelliteData:
                         point_struct["left_status"] = 0
                     else:
                         if point_struct["left"] >= before_point_struct['right']:
-                            # curr_point = self.read_line(f, whence, point_struct["left"])
-                            # left_normal_point = self.read_line(f, whence, point_struct["left_normal"])
                             curr_point = cache_lines.get(point_struct["left"])
                             if not curr_point:
                                 update_cache_lines(point_struct["left"], 'left')
@@ -582,13 +589,10 @@ class SatelliteData:
                             left_normal_point = point_struct['left_normal_point']
                             if curr_point[0] is None or left_normal_point[0] is None:
                                 continue
-                            # curr_point = tmp_chice_data[point_struct["left"]]
-                            # left_normal_point = tmp_chice_data[point_struct["left_normal"]]
 
                             # 判断时间是否超过十分钟, 超过则停止该方向剔野
-                            curr_point_time = datetime.datetime.strptime(curr_point[0], "%Y-%m-%d %H:%M:%S.%f")
-                            left_normal_point_time = datetime.datetime.strptime(left_normal_point[0],
-                                                                                "%Y-%m-%d %H:%M:%S.%f")
+                            curr_point_time = self.init_datetime(curr_point[0])
+                            left_normal_point_time = point_struct["left_normal_point_time"] if point_struct["left_normal_point_time"] is not None else self.init_datetime(left_normal_point[0])
                             # if (left_normal_point_time - curr_point_time) > datetime.timedelta(seconds=600):
                             #     point_struct["left_status"] = 0
                             # 判断变化率
@@ -614,6 +618,7 @@ class SatelliteData:
                                 # 正常点
                                 point_struct["left_normal"] = point_struct["left"]
                                 point_struct["left_normal_point"] = curr_point
+                                point_struct["left_normal_point_time"] = curr_point_time
                                 point_struct["left_outlier"] = None
                             del cache_lines[point_struct["left"]]
                             point_struct["left"] = point_struct["left"] - 1
@@ -626,8 +631,6 @@ class SatelliteData:
                         point_struct["right_status"] = 0
                     else:
                         if point_struct["right"] <= after_point_struct['left']:
-                            # curr_point = self.read_line(f, whence, point_struct["right"])
-                            # right_normal_point = self.read_line(f, whence, point_struct["right_normal"])
                             curr_point = cache_lines.get(point_struct["right"])
                             if not curr_point:
                                 update_cache_lines(point_struct["right"], 'right')
@@ -637,13 +640,10 @@ class SatelliteData:
                             if curr_point[0] is None or left_normal_point[0] is None:
                                 print('left_normal_point')
                                 continue
-                            # curr_point = tmp_chice_data[point_struct["right"]]
-                            # right_normal_point = tmp_chice_data[point_struct["right_normal"]]
 
                             # 判断时间是否超过十分钟, 超过则停止该方向剔野
-                            curr_point_time = datetime.datetime.strptime(curr_point[0], "%Y-%m-%d %H:%M:%S.%f")
-                            right_normal_point_time = datetime.datetime.strptime(right_normal_point[0],
-                                                                                 "%Y-%m-%d %H:%M:%S.%f")
+                            curr_point_time = self.init_datetime(curr_point[0])
+                            right_normal_point_time = point_struct["right_normal_point_time"] if point_struct["right_normal_point_time"] is not None else self.init_datetime(right_normal_point[0])
                             # if (curr_point_time - right_normal_point_time) > datetime.timedelta(seconds=600):
                             #     point_struct["right_status"] = 0
                             # 判断变化率
@@ -669,6 +669,7 @@ class SatelliteData:
                                 # 正常点
                                 point_struct["right_normal"] = point_struct["right"]
                                 point_struct["right_normal_point"] = curr_point
+                                point_struct["right_normal_point_time"] = curr_point_time
                                 point_struct["right_outlier"] = None
                             del cache_lines[point_struct["right"]]
                             point_struct["right"] = point_struct["right"] + 1
@@ -679,7 +680,6 @@ class SatelliteData:
         correct_index_list.reverse()
         print('correct_index_list_len:', len(correct_index_list))
         progress.hide()
-
         # 剔除野点, 保存缓存文件
         if self.cache_list:
             choice_file = self.cache_list[-1]['file_path']
@@ -725,7 +725,7 @@ class SatelliteData:
                     else:
                         cache_lines.append(source_line)
 
-                    if len(cache_lines) > 10000:
+                    if len(cache_lines) > 100000:
                         new_cache_f.writelines(cache_lines)
                         new_cache_f.flush()
                         cache_lines.clear()
@@ -823,5 +823,20 @@ class SatelliteData:
                     minX = v
         return [minX, maxX]
 
-
+    def init_datetime(self, time_str):
+        '''
+        使用该方法差不多为直接用datetime.datetime.strptime()耗时的三分之一
+        :param time_str: eg: 2020-06-04 07:04:56.620
+        :return:
+        '''
+        year = int(time_str[:4])
+        month = int(time_str[5:7])
+        day = int(time_str[8:10])
+        hour = int(time_str[11:13])
+        minute = int(time_str[14:16])
+        second = int(time_str[17:19])
+        mincrocecond = int(time_str[20:23] + '000')
+        d = datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second,
+                              microsecond=mincrocecond)
+        return d
 
