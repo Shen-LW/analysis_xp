@@ -1157,7 +1157,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def source_choice(self, star_list):
         # {"index": "star"}
         # 长度小于5，直接返回
-        if len(star_list) < 5:
+        if len(star_list) < 4:
             return
 
         self.progress.setContent("进度", '---源包剔野中---')
@@ -1206,8 +1206,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if not source_f_list:
                 break
             delete_index = []
-            # 如果长度小于5了，直接写入
-            if len(source_f_list) < 5:
+            # 如果长度小于4了，直接写入
+            if len(source_f_list) < 4:
                 for j in range(len(source_f_list)):
                     source_line = source_f_list[j].readline()
                     line = source_line.replace('\n', '')
@@ -1222,7 +1222,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 # 判断最小值的个数
                 number = time_str_list.count(min_str)
                 delete_index = []
-                if number >= 5:  # 同一时间段大于5个
+                if number >= 4:  # 同一时间段大于4个
                     # 判单时间最小值对应的野点格式有
                     n = 0
                     for index, time_str in enumerate(time_str_list):
@@ -1232,7 +1232,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
                     for index, time_str in enumerate(time_str_list):
                         if time_str == min_str:
-                            if n < 5:  # 野点数小于5 直接写入
+                            if n < 4:  # 野点数小于4 直接写入
                                 tmp_f_list[index].write(time_line_list[index])
                             # else:
                             #     print(time_str)
