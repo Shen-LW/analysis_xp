@@ -114,9 +114,19 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
         'start': 0,
     }
     post_url = 'http://www.ygzx.cast/db/tmdata/tmdata.edq'
+
+    test_index = 0
     while 1:
+        test_index = test_index + 1
+        print(satellite_data.dataHead['telemetry_num'], '爬取线程循环次数', test_index)
+        print(satellite_data.dataHead['telemetry_num'], '请求参数', form_data)
         res = requests.post(url=post_url, headers=menu_headers, data=form_data)
         r_json = hjson.loads(res.text)
+
+        if test_index > 20:
+            print(satellite_data.dataHead['telemetry_num'], '请求状态', res.status_code)
+            print(satellite_data.dataHead['telemetry_num'], '请求结果', r_json)
+
         count = r_json['count']
         items = r_json['items']
         s = requests.session()
@@ -180,6 +190,7 @@ def crawl(satellite_data, username, password, model_name, telemetry_name, start_
     else:
         return False, "未解析到遥测代号"
     # 实际爬取数据
+    print(satellite_data.dataHead['telemetry_num'], '爬取线程开始')
     crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
     satellite_data.rename_extension()
     return True, satellite_data
@@ -225,7 +236,11 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
     end_time = trans_data_time(end_time)
     # 安照10分钟生成数据
     ii = -1
+    print(satellite_data.dataHead['telemetry_num'], '爬取线程开始')
+    test_index = 0
     while 1:
+        test_index = test_index + 1
+        print(satellite_data.dataHead['telemetry_num'], '爬取线程循环次数', test_index)
         ii = ii + 1
         min_value = random.randint(-1000, 0) / 1000
         max_value = random.randint(0, 1000) / 1000
