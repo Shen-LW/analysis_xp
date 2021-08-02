@@ -118,20 +118,32 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
     test_index = 0
     while 1:
         test_index = test_index + 1
-        print(satellite_data.dataHead['telemetry_num'], '爬取线程循环次数', test_index)
-        print(satellite_data.dataHead['telemetry_num'], '请求参数', form_data)
-        res = requests.post(url=post_url, headers=menu_headers, data=form_data)
+        # print(satellite_data.dataHead['telemetry_num'], '爬取线程循环次数', test_index)
+        # print(satellite_data.dataHead['telemetry_num'], '请求参数', form_data)
+        res = requests.post(url=post_url, headers=menu_headers, data=form_data, timeout=60)
+        # 失效时最多重试5次
+        if res.status_code != 200:
+            for i in range(5):
+                res = requests.post(url=post_url, headers=menu_headers, data=form_data, timeout=60)
+                if res.status_code == 200:
+                    break
+            else:
+                print(res.text)
+                raise ValueError('请求数据出错')
         r_json = hjson.loads(res.text)
-
-        if test_index > 20:
-            print(satellite_data.dataHead['telemetry_num'], '请求状态', res.status_code)
-            print(satellite_data.dataHead['telemetry_num'], '请求结果', r_json)
+        # if test_index > 20:
+        #     print(satellite_data.dataHead['telemetry_num'], '请求状态', res.status_code)
+        #     print(satellite_data.dataHead['telemetry_num'], '请求结果', r_json)
 
         count = r_json['count']
         items = r_json['items']
         s = requests.session()
         s.keep_alive = False
-        if count == 0 or count < limit:
+        if count == 0:
+            break
+        elif count < limit:
+            tmp_data = parse_data(items[:-1])
+            satellite_data.add_data(tmp_data)
             break
         else:
             # 获取结尾时间
@@ -161,39 +173,45 @@ def check_login(username, password):
 
 
 def crawl(satellite_data, username, password, model_name, telemetry_name, start_time, end_time):
-    start_time = trans_time(start_time)
-    end_time = trans_time(end_time)
-    cookie = get_cookie(username, password)
-    date_stamp = int(time.time() * 1000)
-    # 解析型号名称
-    modellist = crawl_menu(cookie, date_stamp)
-    if modellist is None or modellist == []:
-        return False, "账号或密码错误"
-    mid = None
-    sys_resource_id = None
-    for item in modellist:
-        if item["name"] == model_name:
-            mid = item['mid']
-            sys_resource_id = item["sys_resource_id"]
-            break
-    else:
-        return False, "未匹配到型号ID"
-    # 解析遥测代号
-    telemetry_id = None
-    telemetry_num = None
-    numlist = find_grant(date_stamp, cookie, sys_resource_id, telemetry_name)
-    for item in numlist:
-        if item["code"] == telemetry_name:
-            telemetry_id = item["id"]
-            telemetry_num = item["num"]
-            break
-    else:
-        return False, "未解析到遥测代号"
-    # 实际爬取数据
-    print(satellite_data.dataHead['telemetry_num'], '爬取线程开始')
-    crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
-    satellite_data.rename_extension()
-    return True, satellite_data
+    try:
+        start_time = trans_time(start_time)
+        end_time = trans_time(end_time)
+        cookie = get_cookie(username, password)
+        date_stamp = int(time.time() * 1000)
+        # 解析型号名称
+        modellist = crawl_menu(cookie, date_stamp)
+        if modellist is None or modellist == []:
+            print('')
+            return False, "账号或密码错误", satellite_data
+        mid = None
+        sys_resource_id = None
+        for item in modellist:
+            if item["name"] == model_name:
+                mid = item['mid']
+                sys_resource_id = item["sys_resource_id"]
+                break
+        else:
+            return False, "未匹配到型号ID", satellite_data
+        # 解析遥测代号
+        telemetry_id = None
+        telemetry_num = None
+        numlist = find_grant(date_stamp, cookie, sys_resource_id, telemetry_name)
+        for item in numlist:
+            if item["code"] == telemetry_name:
+                telemetry_id = item["id"]
+                telemetry_num = item["num"]
+                break
+        else:
+            return False, "未解析到遥测代号", satellite_data
+        # 实际爬取数据
+        print(satellite_data.dataHead['telemetry_num'], '爬取线程开始')
+        crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
+        satellite_data.rename_extension()
+        return True, "读取成功", satellite_data
+    except Exception as e:
+        print(e)
+        return False, '读取程序总体异常捕捉', satellite_data
+
 
 
 
@@ -231,65 +249,69 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
         new_time = datetime.datetime.strptime(new_time, "%Y-%m-%d %H:%M:%S.%f")
         return new_time
 
+    try:
+        start_time = trans_data_time(start_time)
+        end_time = trans_data_time(end_time)
+        # 安照10分钟生成数据
+        ii = -1
+        print(satellite_data.dataHead['telemetry_num'], '爬取线程开始')
+        test_index = 0
+        while 1:
+            test_index = test_index + 1
+            print(satellite_data.dataHead['telemetry_num'], '爬取线程循环次数', test_index)
+            ii = ii + 1
+            min_value = random.randint(-1000, 0) / 1000
+            max_value = random.randint(0, 1000) / 1000
+            next_time = start_time + datetime.timedelta(minutes=240)
+            start_time_str = str(start_time) + '.454'
+            if next_time < end_time:
+                end_time_str = str(next_time) + '.454'
+                items = create_test_timedata(start_time_str, end_time_str, min_value, max_value)
+                # 增加一个随机噪声
+                if ii % 6 == 0:
+                    index = random.randint(0, 599)
+                    n_v = float(items[index]["V02317575"]) + 3
+                    n_v = str(n_v) + '0' * (16 - len(str(n_v)))
+                    items[index]["V02317575"] = n_v[:16]
+                items = parse_data(items)
+                items_keys = [k for k in items.keys()]
+                for i in range(0, len(items_keys), 10000):
+                    tm = collections.OrderedDict()
+                    for item_key in items_keys[i:i + 10000]:
+                        tm[item_key] = items[item_key]
+                    if ii not in [i for i in range(216, 332)]:
+                        satellite_data.add_data(tm)
 
-    start_time = trans_data_time(start_time)
-    end_time = trans_data_time(end_time)
-    # 安照10分钟生成数据
-    ii = -1
-    print(satellite_data.dataHead['telemetry_num'], '爬取线程开始')
-    test_index = 0
-    while 1:
-        test_index = test_index + 1
-        print(satellite_data.dataHead['telemetry_num'], '爬取线程循环次数', test_index)
-        ii = ii + 1
-        min_value = random.randint(-1000, 0) / 1000
-        max_value = random.randint(0, 1000) / 1000
-        next_time = start_time + datetime.timedelta(minutes=240)
-        start_time_str = str(start_time) + '.454'
-        if next_time < end_time:
-            end_time_str = str(next_time) + '.454'
-            items = create_test_timedata(start_time_str, end_time_str, min_value, max_value)
-            # 增加一个随机噪声
-            if ii % 6 == 0:
+                del items
+                del items_keys
+                gc.collect()
+                start_time = next_time
+            else:
+                end_time_str = str(end_time) + '.454'
+                items = create_test_timedata(start_time_str, end_time_str, min_value, max_value)
+                # 增加一个随机噪声
                 index = random.randint(0, 599)
                 n_v = float(items[index]["V02317575"]) + 3
                 n_v = str(n_v) + '0' * (16 - len(str(n_v)))
                 items[index]["V02317575"] = n_v[:16]
-            items = parse_data(items)
-            items_keys = [k for k in items.keys()]
-            for i in range(0, len(items_keys), 10000):
-                tm = collections.OrderedDict()
-                for item_key in items_keys[i:i + 10000]:
-                    tm[item_key] = items[item_key]
-                if ii not in [i for i in range(216, 332)]:
+                items = parse_data(items)
+                items_keys = [k for k in items.keys()]
+                for i in range(0, len(items_keys), 10000):
+                    tm = collections.OrderedDict()
+                    for item_key in items_keys[i:i + 10000]:
+                        tm[item_key] = items[item_key]
                     satellite_data.add_data(tm)
+                del items
+                del items_keys
+                gc.collect()
+                break
 
-            del items
-            del items_keys
-            gc.collect()
-            start_time = next_time
-        else:
-            end_time_str = str(end_time) + '.454'
-            items = create_test_timedata(start_time_str, end_time_str, min_value, max_value)
-            # 增加一个随机噪声
-            index = random.randint(0, 599)
-            n_v = float(items[index]["V02317575"]) + 3
-            n_v = str(n_v) + '0' * (16 - len(str(n_v)))
-            items[index]["V02317575"] = n_v[:16]
-            items = parse_data(items)
-            items_keys = [k for k in items.keys()]
-            for i in range(0, len(items_keys), 10000):
-                tm = collections.OrderedDict()
-                for item_key in items_keys[i:i + 10000]:
-                    tm[item_key] = items[item_key]
-                satellite_data.add_data(tm)
-            del items
-            del items_keys
-            gc.collect()
-            break
+        satellite_data.rename_extension()
+        return True, "爬取成功", satellite_data
+    except Exception as e:
+        print(e)
+        return False, "总体错误", satellite_data
 
-    satellite_data.rename_extension()
-    return True, satellite_data
 
 
 

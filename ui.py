@@ -369,9 +369,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
             # todo 读取失败的判断
             tmp_text = "未剔野" if item['status'] is not None else "数据读取失败"
-            self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
             if tmp_text == '数据读取失败':
-                self.fileinfo_table_2.item(r, 1).setBackground(QColor(255, 185, 15))
+                continue
+                # self.fileinfo_table_2.item(r, 1).setBackground(QColor(255, 185, 15))
+            else:
+                self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
             self.fileinfo_table_2.setItem(r, 2, QTableWidgetItem(str(item['telemetry_name'])))
             self.fileinfo_table_2.setItem(r, 3, QTableWidgetItem(str(item['telemetry_num'])))
             self.fileinfo_table_2.setItem(r, 4, QTableWidgetItem(str(item['normal_range'])))
@@ -386,7 +388,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
 
     def crawl_callback(self, msg):
-        is_ok, satellite_data = msg
+        is_ok, content, satellite_data = msg
         index = self.excel_data.index(satellite_data)
         if is_ok:
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取成功"))
@@ -397,6 +399,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             QApplication.processEvents()
         else:
             print('读取失败，data=', satellite_data)
+            satellite_data.dataHead['status'] = None
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
 
@@ -423,18 +426,18 @@ class UiTest(QMainWindow, Ui_MainWindow):
             return
 
 
-        # 判断遥测代号是否重复
-        telemetry_num_list = [satellite_data.dataHead['telemetry_num'] for satellite_data in self.excel_data]
-        error_num_list = []
-        for telemetry_num in telemetry_num_list:
-            if telemetry_num_list.count(telemetry_num) > 1 and telemetry_num not in error_num_list:
-                error_num_list.append(telemetry_num)
-
-        if error_num_list:
-            message_box = MyMessageBox()
-            message_box.setContent("请检查数据", "遥测代号发生重复 \n" + str(error_num_list))
-            message_box.exec_()
-            return
+        # # 判断遥测代号是否重复
+        # telemetry_num_list = [satellite_data.dataHead['telemetry_num'] for satellite_data in self.excel_data]
+        # error_num_list = []
+        # for telemetry_num in telemetry_num_list:
+        #     if telemetry_num_list.count(telemetry_num) > 1 and telemetry_num not in error_num_list:
+        #         error_num_list.append(telemetry_num)
+        #
+        # if error_num_list:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("请检查数据", "遥测代号发生重复 \n" + str(error_num_list))
+        #     message_box.exec_()
+        #     return
 
 
         # 判断是否存在需要爬取的条目
@@ -451,32 +454,32 @@ class UiTest(QMainWindow, Ui_MainWindow):
         model = self.model_edit.text()
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
-        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-            message_box = MyMessageBox()
-            message_box.setContent("参数缺失", "请完善参数信息")
-            message_box.exec_()
-            return
+        # if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("参数缺失", "请完善参数信息")
+        #     message_box.exec_()
+        #     return
 
         # todo: 发布前记得复原
         # self.config.change_login(self.username_edit.text(), self.password_edit.text())
         # 判断账号密码是否正确
-        try:
-            is_login = check_login(username, password)
-        except Exception as e:
-            print('错误内容', e)
-            message_box = MyMessageBox()
-            message_box.setContent("登录失败", "网络连接失败")
-            message_box.exec_()
-            return
-
-        if not is_login:
-            message_box = MyMessageBox()
-            message_box.setContent("读取失败", "账号或密码错误")
-            message_box.exec_()
-            return
-        else:
-            # 保存账户和密码
-            self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # try:
+        #     is_login = check_login(username, password)
+        # except Exception as e:
+        #     print('错误内容', e)
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("登录失败", "网络连接失败")
+        #     message_box.exec_()
+        #     return
+        #
+        # if not is_login:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("读取失败", "账号或密码错误")
+        #     message_box.exec_()
+        #     return
+        # else:
+        #     # 保存账户和密码
+        #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
         self.crawl_status = True
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
