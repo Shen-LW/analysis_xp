@@ -61,6 +61,9 @@ class SatelliteData:
             head = self.get_headline()
             f.write(head)
 
+        # 等到读取完成之后再修改状态，避免文件读取完成的判断出错
+        self.dataHead['status'] = '未读取'
+
     def get_headline(self):
         head = str(self.dataHead['status']) + '||' + str(self.dataHead['telemetry_name']) + '||' + str(
             self.dataHead['telemetry_num']) + '||' + str(self.dataHead['normal_range']) + '||' + str(
@@ -110,6 +113,12 @@ class SatelliteData:
         with open(self.file_path, 'a', encoding='gbk') as f:
             lines = [k + '||' + str(v) + '\n' for k, v in data.items()]
             f.writelines(lines)
+
+    def delete_file(self):
+        # 删除文件，重置对象状态
+        if os.path.exists(self.file_path):
+            os.remove(self.file_path)
+        self.dataHead['status'] = None
 
 
     def read_line(self, f, whence, line_index):
@@ -839,4 +848,5 @@ class SatelliteData:
         d = datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second,
                               microsecond=mincrocecond)
         return d
+
 

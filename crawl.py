@@ -9,6 +9,7 @@ import random
 import datetime
 import collections
 import hjson
+import traceback
 
 from satelliteData import SatelliteData
 
@@ -181,7 +182,6 @@ def crawl(satellite_data, username, password, model_name, telemetry_name, start_
         # 解析型号名称
         modellist = crawl_menu(cookie, date_stamp)
         if modellist is None or modellist == []:
-            print('')
             return False, "账号或密码错误", satellite_data
         mid = None
         sys_resource_id = None
@@ -204,13 +204,14 @@ def crawl(satellite_data, username, password, model_name, telemetry_name, start_
         else:
             return False, "未解析到遥测代号", satellite_data
         # 实际爬取数据
-        print(satellite_data.dataHead['telemetry_num'], '爬取线程开始')
         crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
         satellite_data.rename_extension()
         return True, "读取成功", satellite_data
     except Exception as e:
-        print(e)
-        return False, '读取程序总体异常捕捉', satellite_data
+        traceback.print_exc()
+        # 对错误缓存文件进行删除
+        satellite_data.delete_file()
+        return False, '读取程序总体异常捕捉：/n', satellite_data
 
 
 
@@ -250,6 +251,8 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
         return new_time
 
     try:
+        # if satellite_data.dataHead['telemetry_num'] in ['RKSA1', 'RKSA5', 'RKSB10'] and model_name is not False:
+        #     raise ValueError('请求数据出错')
         start_time = trans_data_time(start_time)
         end_time = trans_data_time(end_time)
         # 安照10分钟生成数据
@@ -309,8 +312,10 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
         satellite_data.rename_extension()
         return True, "爬取成功", satellite_data
     except Exception as e:
-        print(e)
-        return False, "总体错误", satellite_data
+        traceback.print_exc()
+        # todo 对错误缓存文件进行删除
+        satellite_data.delete_file()
+        return False, "爬取线程出现错误错误:/n ", satellite_data
 
 
 

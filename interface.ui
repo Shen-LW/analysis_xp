@@ -312,14 +312,14 @@ background-color: rgb(226,226,226);</string>
          <minute>0</minute>
          <second>0</second>
          <year>2020</year>
-         <month>11</month>
+         <month>10</month>
          <day>12</day>
         </datetime>
        </property>
        <property name="date">
         <date>
          <year>2020</year>
-         <month>11</month>
+         <month>10</month>
          <day>12</day>
         </date>
        </property>
@@ -436,6 +436,23 @@ background-color: rgb(226,226,226);</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="reset_crawl_btn">
+       <property name="geometry">
+        <rect>
+         <x>1030</x>
+         <y>115</y>
+         <width>93</width>
+         <height>30</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">font: 10pt &quot;Microsoft YaHei UI&quot;;
+background-color:#5eff53;</string>
+       </property>
+       <property name="text">
+        <string>重新读取</string>
        </property>
       </widget>
      </widget>

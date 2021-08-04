@@ -3,7 +3,7 @@
      注意pip版本一定不要超过18.0，不然pip和python3.4将不兼容，导致只能重新安装python
 
 2、批量安装依赖；
-pip install -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
+c:\Python34\Scripts\pip.exe install -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
 
 3、安装pywin32。直接点击pywin32-220.win32-py3.4.exe。注意指定python目录
 

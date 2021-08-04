@@ -60,6 +60,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def binding_signal(self):
         self.upload_excel_btn.clicked.connect(self.choose_excel)
         self.crawl_btn.clicked.connect(self.crawl)
+        self.reset_crawl_btn.clicked.connect(self.reset_crawl)
         self.report_docx_btn.clicked.connect(self.report_excel)
         self.open_sdat_btn.clicked.connect(self.reload_sdat)
         self.fileinfo_table_2.itemChanged.connect(self.table_update)
@@ -97,6 +98,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             choice_items = [str([item + 1 for item in indexs]) for indexs in auto_choices]
             choice_items.insert(0, '[]')
             self.auto_choices_cbbox.addItems(choice_items)
+
+        self.reset_crawl_btn.setHidden(True)
 
         self.undo_base_btn.setEnabled(False)
         self.undo_base_btn.setStyleSheet(
@@ -293,7 +296,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def reload_sdat(self):
         # 手动加载数据
-
         if self.crawl_status:
             message_box = MyMessageBox()
             message_box.setContent("请等待", "请等待数据读取完成")
@@ -304,6 +306,26 @@ class UiTest(QMainWindow, Ui_MainWindow):
                                                                          os.getcwd(),  # 起始路径
                                                                          "sDat Files (*.sDat)")
         if filename_list == []:
+            return
+
+        # 判断遥测代号是否重复
+        old_telemetry_num_list = [satellite_data.dataHead['telemetry_num'] for satellite_data in self.excel_data]
+        new_telemetry_num_list = []
+        for filename in filename_list:
+            tmp_star = SatelliteData(file_path=filename, dataHead=None)
+            if tmp_star.dataHead['telemetry_num'] not in new_telemetry_num_list:
+                new_telemetry_num_list.append(tmp_star.dataHead['telemetry_num'])
+
+        error_num_list = []
+        for item in new_telemetry_num_list:
+            if item in old_telemetry_num_list:
+                error_num_list.append(item)
+
+        error_num_list = list(set(error_num_list))
+        if error_num_list:
+            message_box = MyMessageBox()
+            message_box.setContent("请检查数据", "遥测代号已存在 \n" + str(error_num_list))
+            message_box.exec_()
             return
 
         for filename in filename_list:
@@ -324,7 +346,14 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.fileinfo_table.setRowCount(len(excel_data))
         for r in range(row):
             item = excel_data[r].dataHead
-            self.fileinfo_table.setItem(r, 0, QTableWidgetItem(str(item['status'])))
+            item_status = item['status']
+            if item_status is None:
+                one_text = '读取失败'
+            elif item_status == '读取成功':
+                one_text = '读取成功'
+            else:
+                one_text = item_status
+            self.fileinfo_table.setItem(r, 0, QTableWidgetItem(str(one_text)))
             self.fileinfo_table.setItem(r, 1, QTableWidgetItem(str(item['telemetry_name'])))
             self.fileinfo_table.setItem(r, 2, QTableWidgetItem(str(item['telemetry_num'])))
             self.fileinfo_table.setItem(r, 3, QTableWidgetItem(str(item['normal_range'])))
@@ -335,6 +364,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table.setItem(r, 8, QTableWidgetItem(str(item['params_two'])))
             self.fileinfo_table.setItem(r, 9, QTableWidgetItem(str(item['params_three'])))
             self.fileinfo_table.setItem(r, 10, QTableWidgetItem(str(item['params_four'])))
+
+            if item_status is None:
+                self.fileinfo_table.item(r, 0).setBackground(QColor(255, 185, 15))
+            elif item_status == '读取成功':
+                self.fileinfo_table.item(r, 0).setBackground(QColor(100, 255, 0))
+
         # 表格1禁止编辑
         self.fileinfo_table.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
 
@@ -366,14 +401,17 @@ class UiTest(QMainWindow, Ui_MainWindow):
         for r in range(row):
             item = excel_data[r].dataHead
             selectBtn = self.getSelectButton(r)
-            self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
-            # todo 读取失败的判断
+
+            # 读取失败的判断
             tmp_text = "未剔野" if item['status'] is not None else "数据读取失败"
             if tmp_text == '数据读取失败':
-                continue
-                # self.fileinfo_table_2.item(r, 1).setBackground(QColor(255, 185, 15))
-            else:
                 self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
+                self.fileinfo_table_2.item(r, 1).setBackground(QColor(255, 185, 15))
+            else:
+                self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
+                self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
+                updateBtn = self.buttonForRow(r)
+                self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
             self.fileinfo_table_2.setItem(r, 2, QTableWidgetItem(str(item['telemetry_name'])))
             self.fileinfo_table_2.setItem(r, 3, QTableWidgetItem(str(item['telemetry_num'])))
             self.fileinfo_table_2.setItem(r, 4, QTableWidgetItem(str(item['normal_range'])))
@@ -384,8 +422,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setItem(r, 9, QTableWidgetItem(str(item['params_two'])))
             self.fileinfo_table_2.setItem(r, 10, QTableWidgetItem(str(item['params_three'])))
             self.fileinfo_table_2.setItem(r, 11, QTableWidgetItem(str(item['params_four'])))
-            updateBtn = self.buttonForRow(r)
-            self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
+
 
     def crawl_callback(self, msg):
         is_ok, content, satellite_data = msg
@@ -398,8 +435,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.progress.show()
             QApplication.processEvents()
         else:
-            print('读取失败，data=', satellite_data)
+            print('读取失败，telemetry_num = ', satellite_data.dataHead['telemetry_num'])
             satellite_data.dataHead['status'] = None
+            self.reset_crawl_btn.setHidden(False)
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
             self.fileinfo_table.item(index, 0).setBackground(QColor(255, 185, 15))
 
@@ -425,23 +463,21 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
 
+        # 判断遥测代号是否重复
+        telemetry_num_list = [satellite_data.dataHead['telemetry_num'] for satellite_data in self.excel_data]
+        error_num_list = []
+        for telemetry_num in telemetry_num_list:
+            if telemetry_num_list.count(telemetry_num) > 1 and telemetry_num not in error_num_list:
+                error_num_list.append(telemetry_num)
 
-        # # 判断遥测代号是否重复
-        # telemetry_num_list = [satellite_data.dataHead['telemetry_num'] for satellite_data in self.excel_data]
-        # error_num_list = []
-        # for telemetry_num in telemetry_num_list:
-        #     if telemetry_num_list.count(telemetry_num) > 1 and telemetry_num not in error_num_list:
-        #         error_num_list.append(telemetry_num)
-        #
-        # if error_num_list:
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("请检查数据", "遥测代号发生重复 \n" + str(error_num_list))
-        #     message_box.exec_()
-        #     return
-
+        if error_num_list:
+            message_box = MyMessageBox()
+            message_box.setContent("请检查数据", "遥测代号发生重复 \n" + str(error_num_list))
+            message_box.exec_()
+            return
 
         # 判断是否存在需要爬取的条目
-        if not [star for star in self.excel_data if star.dataHead['status'] == '未读取']:
+        if not [star for star in self.excel_data if (star.dataHead['status'] == '未读取' or star.dataHead['status'] == None)]:
             self.crawl_status = False
             # 切换到数据分析标签，并填充数据
             self.hidden_frame('data_analysis')
@@ -454,32 +490,31 @@ class UiTest(QMainWindow, Ui_MainWindow):
         model = self.model_edit.text()
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
-        # if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("参数缺失", "请完善参数信息")
-        #     message_box.exec_()
-        #     return
+        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+            message_box = MyMessageBox()
+            message_box.setContent("参数缺失", "请完善参数信息")
+            message_box.exec_()
+            return
 
         # todo: 发布前记得复原
-        # self.config.change_login(self.username_edit.text(), self.password_edit.text())
         # 判断账号密码是否正确
-        # try:
-        #     is_login = check_login(username, password)
-        # except Exception as e:
-        #     print('错误内容', e)
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("登录失败", "网络连接失败")
-        #     message_box.exec_()
-        #     return
-        #
-        # if not is_login:
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("读取失败", "账号或密码错误")
-        #     message_box.exec_()
-        #     return
-        # else:
-        #     # 保存账户和密码
-        #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        try:
+            is_login = check_login(username, password)
+        except Exception as e:
+            print('错误内容', e)
+            message_box = MyMessageBox()
+            message_box.setContent("登录失败", "网络连接失败")
+            message_box.exec_()
+            return
+
+        if not is_login:
+            message_box = MyMessageBox()
+            message_box.setContent("读取失败", "账号或密码错误")
+            message_box.exec_()
+            return
+        else:
+            # 保存账户和密码
+            self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
         self.crawl_status = True
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
@@ -489,7 +524,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:rgb(156,156,156);;color:#fff;')
         self.thread_list = []
         for satellite_data in self.excel_data:
-            if satellite_data.dataHead['status'] == '未读取':
+            if satellite_data.dataHead['status'] == '未读取' or satellite_data.dataHead['status'] is None:
                 # 更新可能修改的起止时间
                 create_time_1 = self.trans_data_time(create_time)
                 end_time_1 = self.trans_data_time(end_time)
@@ -497,7 +532,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
                     end_time)[:-5] + '.tmp'
                 satellite_data.dataHead['start_time'] = create_time_1
                 satellite_data.dataHead['end_time'] = end_time_1
+                satellite_data.dataHead['status'] = '未读取'
                 satellite_data.file_path = file_path
+
+                # # todo 测试
+                # if self.reset_crawl_btn.isHidden() == False:
+                #     model = False
+
                 tmp_thread = CrawlThread(satellite_data, username, password, model, create_time, end_time)
                 tmp_thread._signal.connect(self.crawl_callback)
                 self.thread_list.append(tmp_thread)
@@ -515,6 +556,26 @@ class UiTest(QMainWindow, Ui_MainWindow):
             # 切换到数据分析标签，并填充数据
             self.hidden_frame('data_analysis')
             self.update_talbe2()
+
+
+    def reset_crawl(self):
+        if self.crawl_status:
+            message_box = MyMessageBox()
+            message_box.setContent("请等待", "请等待数据读取完成")
+            message_box.exec_()
+            return
+
+        # 重新下载错误的数据
+        message_box = MyMessageBox()
+        message_box.setContent("重新下载", "是否重新获取失败的数据")
+        message_box.exec_()
+        if message_box.reply == QMessageBox.Ok:
+            self.crawl()
+        else:
+            return
+
+
+
 
     def manual_choice(self, r):
         '''
@@ -609,7 +670,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 获取当前勾选状态，0：未选中，2 已选中
         select_indexs = []
         number = len(self.excel_data)
-        for i in range(number):
+        number_list = [i for i in range(number) if self.excel_data[i].dataHead['status'] is not None]
+        for i in number_list:
             object_name = str(i) + '_select'
             checkbox = self.findChild(QCheckBox, object_name)
             if checkbox.checkState() == 2:
@@ -1017,8 +1079,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def select_all(self):
         number = len(self.excel_data)
+        number_list = [i for i in range(number) if self.excel_data[i].dataHead['status'] is not None]
         if self.select_all_btn.text() == '全选':
-            for i in range(number):
+            for i in number_list:
                 # if self.raw_data[i]['data'] == [] or self.raw_data[i]['data'] is None:
                 #     continue
                 object_name = str(i) + '_select'
@@ -1026,7 +1089,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 checkbox.setChecked(True)
             self.select_all_btn.setText('取消全选')
         elif self.select_all_btn.text() == '取消全选':
-            for i in range(number):
+            for i in number_list:
                 object_name = str(i) + '_select'
                 checkbox = self.findChild(QCheckBox, object_name)
                 checkbox.setChecked(False)
@@ -1104,8 +1167,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if not curr_index:
             curr_index = self.auto_choices_cbbox.currentIndex()
         number = len(self.excel_data)
+        number_list = [i for i in range(number) if self.excel_data[i].dataHead['status'] is not None]
         # 清除原有选择
-        for i in range(number):
+        for i in number_list:
             object_name = str(i) + '_select'
             checkbox = self.findChild(QCheckBox, object_name)
             checkbox.setChecked(False)
@@ -1114,7 +1178,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         choice_lists = self.config.get_auto_choice_list()
         choice_lists.insert(0, [])
         for item in choice_lists[curr_index]:
-            if item < number:
+            if item in number_list:
                 # if self.raw_data[item]['data'] == [] or self.raw_data[item]['data'] is None:
                 #     continue
                 object_name = str(item) + '_select'
@@ -1405,7 +1469,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             return
 
         # 剔野后json数据导出
-        # todo 由于文件大小以及磁盘空间的考虑，暂时取消文件导出，剔野过后的文件将替换原文件
+        # todo 注意：由于文件大小以及磁盘空间的考虑，暂时取消文件导出，剔野过后的文件将替换原文件
         # file_dir = os.path.dirname(fileName_choose)
         # filename = time.strftime("%Y%m%d_%H%M%S") + '.json'
         # json_filename = os.path.join(file_dir, filename)
@@ -1491,7 +1555,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         # 多组数据组合制图
         drafting_number = {}
-        for star in self.excel_data:
+        data_list = [item for item in self.excel_data if item.dataHead['status'] is not None]
+        for star in data_list:
             img_num = str(star.dataHead['img_num'])
             if img_num == '' or img_num == 'None':
                 continue
@@ -1538,7 +1603,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.progress.setValue(0)
         self.progress.show()
         QApplication.processEvents()
-        for index, star in enumerate(self.excel_data):
+
+        data_list = []
+        for star in self.excel_data:
+            table_num = star.dataHead['table_num'].replace(' ', '')
+            if star.dataHead['status'] is not None and table_num in ['1', 1]:
+                data_list.append(star)
+        for index, star in enumerate(data_list):
             self.progress.setValue((index + 1) / len(self.excel_data) * 100)
             self.progress.show()
             QApplication.processEvents()
@@ -1572,19 +1643,23 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # )
 
     def create_table2_data(self):
-        # todo 这里逻辑需要完善
         data = []
         error_number = 0
         num = 0
-        for index, star in enumerate(self.excel_data):
+        data_list = []
+        for star in self.excel_data:
+            table_num = star.dataHead['table_num'].replace(' ', '')
+            if star.dataHead['status'] is not None and table_num in ['1', 2]:
+                data_list.append(star)
+        for index, star in enumerate(data_list):
+            # todo 这里判断逻辑需要完善
             item = star.dataHead
-            if '允许' not in item['normal_range']:
-                continue
-
-            child = (
-                num, item['telemetry_name'], item["telemetry_num"], item['normal_range'], '不允许/0')
-            num = num + 1
-            data.append(child)
+            # if '允许' not in item['normal_range']:
+            #     continue
+            # child = (
+            #     num, item['telemetry_name'], item["telemetry_num"], item['normal_range'], '不允许/0')
+            # num = num + 1
+            # data.append(child)
         return tuple(data)
 
     def split_image(self, source_paths, save_path, flag='horizontal'):
