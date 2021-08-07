@@ -247,6 +247,10 @@ class SatelliteData:
                     for line in tmp_lines:
                         key = line[:23]
                         value = float(line[25:41])
+
+                        # if value > 1000:
+                        #     print(key, value)
+
                         if key < start_time:
                             continue
                         elif next_time > end_time:

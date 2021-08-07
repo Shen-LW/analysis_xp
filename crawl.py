@@ -116,11 +116,8 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
     }
     post_url = 'http://www.ygzx.cast/db/tmdata/tmdata.edq'
 
-    test_index = 0
+    new_start_time = str(start_time)
     while 1:
-        test_index = test_index + 1
-        # print(satellite_data.dataHead['telemetry_num'], '爬取线程循环次数', test_index)
-        # print(satellite_data.dataHead['telemetry_num'], '请求参数', form_data)
         res = requests.post(url=post_url, headers=menu_headers, data=form_data, timeout=60)
         # 失效时最多重试5次
         if res.status_code != 200:
@@ -131,18 +128,21 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
             else:
                 print(res.text)
                 raise ValueError('请求数据出错')
+
+        # with open('downlowd.txt', 'a+', encoding='utf-8') as f:
+        #     f.write('>>>>>>>')
+        #     f.write(res.text)
+
         r_json = hjson.loads(res.text)
-        # if test_index > 20:
-        #     print(satellite_data.dataHead['telemetry_num'], '请求状态', res.status_code)
-        #     print(satellite_data.dataHead['telemetry_num'], '请求结果', r_json)
 
         count = r_json['count']
         items = r_json['items']
         s = requests.session()
         s.keep_alive = False
-        if count == 0:
+        # print("count: ", count, "\ntmParamStr: ", form_data["tmParamStr"])
+        if count <= 1:
             break
-        elif count < limit:
+        elif new_start_time >= str(end_time):
             tmp_data = parse_data(items[:-1])
             satellite_data.add_data(tmp_data)
             break
