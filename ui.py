@@ -408,7 +408,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
                 self.fileinfo_table_2.item(r, 1).setBackground(QColor(255, 185, 15))
             else:
-                self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
+                if item['table_num'] in ['1', 1, '1.0', 1.0]:
+                    self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
                 self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
                 updateBtn = self.buttonForRow(r)
                 self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
@@ -534,10 +535,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 satellite_data.dataHead['end_time'] = end_time_1
                 satellite_data.dataHead['status'] = '未读取'
                 satellite_data.file_path = file_path
-
-                # # todo 测试
-                # if self.reset_crawl_btn.isHidden() == False:
-                #     model = False
 
                 tmp_thread = CrawlThread(satellite_data, username, password, model, create_time, end_time)
                 tmp_thread._signal.connect(self.crawl_callback)
@@ -986,7 +983,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             normal_rate = self.manual_item.dataHead['params_three']
             if normal_rate is '' or normal_rate is None:
                 message_box = MyMessageBox()
-                message_box.setContent("提示", "变化率剔野参数错误")
+                message_box.setContent("提示", "变化率剔野参数缺失或错误")
                 message_box.exec_()
                 return
             else:
@@ -997,6 +994,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
                     message_box.setContent("提示", "变化率剔野参数不是数字")
                     message_box.exec_()
                     return
+
             isTrue, data = self.manual_item.rate_choice(base_point, normal_rate, self.progress)
             if not isTrue:
                 message_box = MyMessageBox()
@@ -1538,15 +1536,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
         h_cells[1].text = '遥测参数'
         h_cells[2].text = '遥测代号'
         h_cells[3].text = '状态位'
-        h_cells[4].text = '状态变化'
+        # h_cells[4].text = '状态变化'
         records1 = self.create_table2_data()
-        for order_number, telemetry_params_num, params_num, status_bit, state_change in records1:
+        for order_number, telemetry_params_num, params_num, status_bit in records1:
             h_cells = table1.add_row().cells
             h_cells[0].text = str(order_number + 1)
             h_cells[1].text = telemetry_params_num
             h_cells[2].text = params_num
             h_cells[3].text = status_bit
-            h_cells[4].text = state_change
+            # h_cells[4].text = state_change
 
         one_head = '1.1 XXXX卫星控制系统性能在轨状况'
         one_heading = document.add_heading('', level=1).add_run(one_head)
@@ -1607,7 +1605,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         data_list = []
         for star in self.excel_data:
             table_num = star.dataHead['table_num'].replace(' ', '')
-            if star.dataHead['status'] is not None and table_num in ['1', 1]:
+            if star.dataHead['status'] is not None and table_num in ['1', 1, '1.0', 1.0]:
                 data_list.append(star)
         for index, star in enumerate(data_list):
             self.progress.setValue((index + 1) / len(self.excel_data) * 100)
@@ -1644,22 +1642,20 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def create_table2_data(self):
         data = []
-        error_number = 0
-        num = 0
         data_list = []
+        num = 0
         for star in self.excel_data:
             table_num = star.dataHead['table_num'].replace(' ', '')
-            if star.dataHead['status'] is not None and table_num in ['1', 2]:
+            if star.dataHead['status'] is not None and table_num in ['2', 2, '2.0', 2.0]:
                 data_list.append(star)
         for index, star in enumerate(data_list):
-            # todo 这里判断逻辑需要完善
+            # 取最后一个值作为状态
             item = star.dataHead
-            # if '允许' not in item['normal_range']:
-            #     continue
-            # child = (
-            #     num, item['telemetry_name'], item["telemetry_num"], item['normal_range'], '不允许/0')
-            # num = num + 1
-            # data.append(child)
+            last_data = star.get_last_data()
+            child = (
+                num, item['telemetry_name'], item["telemetry_num"], last_data)
+            num = num + 1
+            data.append(child)
         return tuple(data)
 
     def split_image(self, source_paths, save_path, flag='horizontal'):

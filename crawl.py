@@ -133,7 +133,8 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
         #     f.write('>>>>>>>')
         #     f.write(res.text)
 
-        r_json = hjson.loads(res.text)
+        content = res.text.replace('NaN', 'null')
+        r_json = hjson.loads(content)
 
         count = r_json['count']
         items = r_json['items']
@@ -335,17 +336,33 @@ def parse_data(items):
     for item in items:
         new_k = ''
         new_v = '0.00000000000000'
+        is_delete = False
         for k, v in item.items():
             if k == 'T0':
                 new_k = v[:23]
             else:
-                n_v = str(v) + '0' * (16 - len(str(v)))
-                v = n_v[:16]
-                new_v = v
-            # if type(v) == float:
-            #     new_v = v
-            # else:
-            #     new_k = v
+                if v is None:
+                    is_delete = True
+                    continue
+                if type(v) is int:
+                    n_v = str(v) + '.' + '0' * (15 - len(str(v)))
+                elif 'e' in str(v):  # 大于+10次幂删除， 小于-10次幂取0
+                    v_dec, v_pow = str(v).split('e')
+                    if int(v_pow) > 10:
+                        is_delete = True
+                        continue
+                    elif int(v_pow) < -10:
+                        n_v = '0.00000000000000'
+                    else:
+                        pow_len = len(v_pow) + 1
+                        dec_len = 16 - pow_len
+                        new_dec = v_dec[:dec_len] if len(v_dec) >= dec_len else v_dec + '0' * (dec_len - len(v_dec))
+                        n_v = new_dec + 'e' + v_pow
+                else:
+                    n_v = str(v) + '0' * (16 - len(str(v)))
+                new_v = n_v[:16]
+        if is_delete:
+            continue
         new_items[new_k] = new_v
     return new_items
 
