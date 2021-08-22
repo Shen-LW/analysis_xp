@@ -408,7 +408,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
                 self.fileinfo_table_2.item(r, 1).setBackground(QColor(255, 185, 15))
             else:
-                if item['table_num'] in ['1', 1, '1.0', 1.0]:
+                if item['table_num'] in ['1', 1, '1.0', 1.0, '2', 2, '2.0', 2.0]:
                     self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
                 self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
                 updateBtn = self.buttonForRow(r)
@@ -667,7 +667,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 获取当前勾选状态，0：未选中，2 已选中
         select_indexs = []
         number = len(self.excel_data)
-        number_list = [i for i in range(number) if self.excel_data[i].dataHead['status'] is not None]
+        number_list = [i for i in range(number) if self.excel_data[i].dataHead['status'] is not None and self.excel_data[i].dataHead['table_num']
+                       in ['1', 1, '1.0', 1.0, '2', 2, '2.0', 2.0]]
         for i in number_list:
             object_name = str(i) + '_select'
             checkbox = self.findChild(QCheckBox, object_name)
@@ -1077,7 +1078,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
     def select_all(self):
         number = len(self.excel_data)
-        number_list = [i for i in range(number) if self.excel_data[i].dataHead['status'] is not None]
+        number_list = [i for i in range(number) if self.excel_data[i].dataHead['status'] is not None and self.excel_data[i].dataHead['table_num'] in
+                       ['1', 1, '1.0', 1.0, '2', 2, '2.0', 2.0]]
         if self.select_all_btn.text() == '全选':
             for i in number_list:
                 # if self.raw_data[i]['data'] == [] or self.raw_data[i]['data'] is None:
@@ -1144,7 +1146,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 阈值剔野
         start = time.time()
         for index, star in tmp_data.items():
-            if self.check_choice('threshold', star.dataHead['params_four']):
+            # 表格二不进行阈值剔野
+            if self.check_choice('threshold', star.dataHead['params_four']) and self.excel_data[i].dataHead['table_num'] in ['1', 1, '1.0', 1.0]:
                 self.threshold_choice(index, star)
         end = time.time()
         print('阈值剔野耗时: ', end - start)
@@ -1165,7 +1168,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if not curr_index:
             curr_index = self.auto_choices_cbbox.currentIndex()
         number = len(self.excel_data)
-        number_list = [i for i in range(number) if self.excel_data[i].dataHead['status'] is not None]
+        number_list = [i for i in range(number) if self.excel_data[i].dataHead['status'] is not None and self.excel_data[i].dataHead['table_num'] in
+                       ['1', 1, '1.0', 1.0, '2', 2, '2.0', 2.0]]
         # 清除原有选择
         for i in number_list:
             object_name = str(i) + '_select'
