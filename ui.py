@@ -1123,7 +1123,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
 
         tmp_data = collections.OrderedDict()
         for i in range(len(self.excel_data)):
-            if i in self.select_indexs:
+            if i in self.select_indexs and self.excel_data[i].dataHead['table_num'] in ['1', 1, '1.0', 1.0]:
                 tmp_data[str(i)] = self.excel_data[i]
 
         # 源包剔野
@@ -1147,7 +1147,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         start = time.time()
         for index, star in tmp_data.items():
             # 表格二不进行阈值剔野
-            if self.check_choice('threshold', star.dataHead['params_four']) and self.excel_data[i].dataHead['table_num'] in ['1', 1, '1.0', 1.0]:
+            if self.check_choice('threshold', star.dataHead['params_four']):
                 self.threshold_choice(index, star)
         end = time.time()
         print('阈值剔野耗时: ', end - start)
@@ -1249,8 +1249,18 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.progress.show()
         QApplication.processEvents()
         # todo 在这里已经耗费了10个工时，没能找到特别好的优化方式，耗时主要是在文件的读取和写入
-        # 获取选择文件中，数据最多的行数作为循环次数. 同时创建文件
+        # 获取选择文件中，数据最多的行数作为循环次数, 剔除没有数据的情况
         point_total = 0
+        tmp_star_list = collections.OrderedDict()
+        for index_str, star in star_list.items():
+            total = star.bufcount(star.file_path)
+            if total > point_total:
+                point_total = total
+            if total > 1:
+                tmp_star_list[index_str] = star
+        star_list = tmp_star_list
+
+        # 创建文件
         source_f_list = []
         tmp_f_list = []
         threshold_list = []
@@ -1258,9 +1268,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             source_f_list.append(open(star.file_path, 'r', encoding='gbk'))
             tmp_file_name = star.file_path[:-5] + '.tmp'
             tmp_f_list.append(open(tmp_file_name, 'w', encoding='gbk'))
-            total = star.bufcount(star.file_path)
-            if total > point_total:
-                point_total = total
             params_one = star.dataHead['params_one']
             threshold = params_one.replace("[", '').replace("]", '').replace(' ', '').replace('，', ',')
             threshold = threshold.split(',')
@@ -1282,7 +1289,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             time_value_list.append(time_value)
 
         # 依次步进剔野
-        for i in range(point_total * len(star_list)):
+        for i in range(point_total * len(source_f_list)):
             if i % 10000 == 0:
                 self.progress.setValue((i / point_total) * 100)
                 self.progress.show()
