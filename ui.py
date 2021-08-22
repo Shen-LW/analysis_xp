@@ -1289,7 +1289,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             time_value_list.append(time_value)
 
         # 依次步进剔野
-        for i in range(point_total * len(source_f_list)):
+        for i in range(point_total * len(star_list)):
             if i % 10000 == 0:
                 self.progress.setValue((i / point_total) * 100)
                 self.progress.show()
