@@ -4,6 +4,7 @@ import math
 import time
 import collections
 import traceback
+import shutil
 
 from PyQt5.QtWidgets import QApplication
 
@@ -778,6 +779,9 @@ class SatelliteData:
         os.rename(self.file_path, new_filename)
         self.file_path = new_filename
         self.dataHead['status'] = '读取成功'
+        # 另存原始数据
+        dst_file = new_filename.replace('tmp/data', 'tmp/data_backup')
+        shutil.copyfile(new_filename, dst_file)
 
 
     def undo_cache(self):

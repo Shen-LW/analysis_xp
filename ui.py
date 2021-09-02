@@ -52,7 +52,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.binding_signal()
         self.extar_control()
-        self.create_dir(['tmp/image', 'tmp/data', 'tmp/cache', 'source'])
+        self.create_dir(['tmp/image', 'tmp/data', 'tmp/cache', 'tmp/data_backup', 'source'])
         self.config = Settings()
         self.init_style()
         self.progress = MyProgress()
@@ -308,28 +308,48 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if filename_list == []:
             return
 
+        # 判断文件夹是否位备份文件夹
+        file_dir = os.path.dirname(filename_list[0])
+        back_up_dir = os.path.abspath('tmp/data_backup')
+        if os.path.normcase(file_dir) == os.path.normcase(back_up_dir):
+            message_box = MyMessageBox()
+            message_box.setContent("请检查数据", "不允许加载备份数据")
+            message_box.exec_()
+            return
+
         # 判断遥测代号是否重复
         old_telemetry_num_list = [satellite_data.dataHead['telemetry_num'] for satellite_data in self.excel_data]
         new_telemetry_num_list = []
+        new_telemetry_star_list = {}
         for filename in filename_list:
             tmp_star = SatelliteData(file_path=filename, dataHead=None)
             if tmp_star.dataHead['telemetry_num'] not in new_telemetry_num_list:
                 new_telemetry_num_list.append(tmp_star.dataHead['telemetry_num'])
+                new_telemetry_star_list[tmp_star.dataHead['telemetry_num']] = tmp_star
 
         error_num_list = []
+        normal_num_list = []
         for item in new_telemetry_num_list:
             if item in old_telemetry_num_list:
                 error_num_list.append(item)
+            else:
+                normal_num_list.append(item)
 
         error_num_list = list(set(error_num_list))
         if error_num_list:
             message_box = MyMessageBox()
-            message_box.setContent("请检查数据", "遥测代号已存在 \n" + str(error_num_list))
+            message_box.setContent("请检查数据", "遥测代号已存在, 是否替换 \n" + str(error_num_list))
             message_box.exec_()
-            return
+            if message_box.reply == QMessageBox.Ok:
+                # 替换数据
+                for num in error_num_list:
+                    # 判断源对象位置
+                    star_index = old_telemetry_num_list.index(num)
+                    nstar = new_telemetry_star_list[num]
+                    self.excel_data[star_index] = copy.deepcopy(nstar)
 
-        for filename in filename_list:
-            star = SatelliteData(file_path=filename, dataHead=None)
+        for normal_num in normal_num_list:
+            star = new_telemetry_star_list[normal_num]
             self.excel_data.append(copy.deepcopy(star))
 
         self.update_talbe1()
