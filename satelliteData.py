@@ -169,7 +169,6 @@ class SatelliteData:
         :param end_time:
         :return:
         '''
-        start = time.time()
         if cache:
             resampling_file_path = cache['file_path']
             content = '---' + self.dataHead['telemetry_num'] + '缓存数据加载中---'
@@ -256,10 +255,11 @@ class SatelliteData:
                         elif key < next_time:
                             if min_point is None:
                                 min_point = [key, value]
+                                max_point = [key, value]
                             else:
-                                if min_point is None or value < min_point[1]:
+                                if value < min_point[1]:
                                     min_point = [key, value]
-                                elif max_point is None or value > max_point[1]:
+                                elif value > max_point[1]:
                                     max_point = [key, value]
                         else:
                             next_time = self._get_next_time(next_time, sampling_grade)
@@ -780,7 +780,7 @@ class SatelliteData:
         self.file_path = new_filename
         self.dataHead['status'] = '读取成功'
         # 另存原始数据
-        dst_file = new_filename.replace('tmp/data', 'tmp/data_backup')
+        dst_file = os.path.join('tmp/data_backup', os.path.basename(self.file_path))
         shutil.copyfile(new_filename, dst_file)
 
 
@@ -827,12 +827,22 @@ class SatelliteData:
 
 
     def get_data_range(self):
-        minX = 0
-        maxX = 0
+        minX = None
+        maxX = None
         f = open(self.file_path, encoding='gbk')
+        head = f.readline()
+        # 设定初始值
         line = f.readline()
+        if line:
+            time_str, v = line.replace('\n', '').split('||')
+            v = round(float(v), 3)
+            minX = v
+            maxX = v
+        else:
+            return None
+
         while 1:
-            lines = f.readlines(100* 1024 * 1024)
+            lines = f.readlines(100 * 1024 * 1024)
             if not lines:
                 break
             for line in lines:

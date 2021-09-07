@@ -41,6 +41,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(UiTest, self).__init__(parent)
         self.region = pg.RectROI([0, 0], [0, 0], pen=pg.mkPen('g', width=1))  # 框选
+        self.time_backup = []  # 保存当前选择的时间，用于修改时间后直接下载
         self.excel_data = []  # 所有excel爬取的数据, 修改记录在这里
         self.crawl_status = False
         self.manual_item = None  # 当前操作的数据
@@ -308,7 +309,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if filename_list == []:
             return
 
-        # 判断文件夹是否位备份文件夹
+        # 判断文件夹是否为备份文件夹
         file_dir = os.path.dirname(filename_list[0])
         back_up_dir = os.path.abspath('tmp/data_backup')
         if os.path.normcase(file_dir) == os.path.normcase(back_up_dir):
@@ -497,6 +498,26 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.exec_()
             return
 
+        # 检查各个控件参数
+        create_time = self.create_time_edit.text()
+        end_time = self.end_time_edit.text()
+        username = self.username_edit.text()
+        password = self.password_edit.text()
+        model = self.model_edit.text()
+        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+            message_box = MyMessageBox()
+            message_box.setContent("参数缺失", "请完善参数信息")
+            message_box.exec_()
+            return
+
+        # 判断时间是否修改，如修改则重新下载新的数据
+        status_backup_list = []
+        if self.time_backup and (create_time != self.time_backup[0] or end_time != self.time_backup[1]):
+            # 时间修改过，修改对象状态
+            for item in self.excel_data:
+                status_backup_list.append(item.dataHead['status'])
+                item.dataHead['status'] = '未读取'
+
         # 判断是否存在需要爬取的条目
         if not [star for star in self.excel_data if (star.dataHead['status'] == '未读取' or star.dataHead['status'] == None)]:
             self.crawl_status = False
@@ -505,20 +526,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.update_talbe2()
             return
 
-        # 检查各个控件参数
-        username = self.username_edit.text()
-        password = self.password_edit.text()
-        model = self.model_edit.text()
-        create_time = self.create_time_edit.text()
-        end_time = self.end_time_edit.text()
-        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-            message_box = MyMessageBox()
-            message_box.setContent("参数缺失", "请完善参数信息")
-            message_box.exec_()
-            return
-
-        # todo: 发布前记得复原
-        # 判断账号密码是否正确
+        # # todo: 发布前记得复原
+        # # 判断账号密码是否正确
         try:
             is_login = check_login(username, password)
         except Exception as e:
@@ -537,8 +546,21 @@ class UiTest(QMainWindow, Ui_MainWindow):
             # 保存账户和密码
             self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
+        # 选取保存文件夹
+        base_dir = 'tmp/data'
+        folder_path = QtWidgets.QFileDialog.getExistingDirectory(self, '选择保存文件夹', base_dir)
+        if folder_path == '':
+            # 状态还原
+            for index, item in enumerate(self.excel_data):
+                item.dataHead['status'] = status_backup_list[index]
+            self.update_talbe1()
+            return
+        self.update_talbe1()
+
         self.crawl_status = True
         self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # 记录当前时间
+        self.time_backup = [create_time, end_time]
         # 多线程爬取
         # 创建线程
         self.crawl_btn.setEnabled(False)
@@ -549,8 +571,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 # 更新可能修改的起止时间
                 create_time_1 = self.trans_data_time(create_time)
                 end_time_1 = self.trans_data_time(end_time)
-                file_path = 'tmp/data/' + satellite_data.dataHead['telemetry_num'] + '_' + trans_time(create_time)[:-5] + '-' + trans_time(
-                    end_time)[:-5] + '.tmp'
+                filename = satellite_data.dataHead['telemetry_num'] + '_' + trans_time(create_time)[:-5] + '-' + trans_time(end_time)[:-5] + '.tmp'
+                file_path = os.path.join(folder_path, filename)
                 satellite_data.dataHead['start_time'] = create_time_1
                 satellite_data.dataHead['end_time'] = end_time_1
                 satellite_data.dataHead['status'] = '未读取'
@@ -573,6 +595,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             # 切换到数据分析标签，并填充数据
             self.hidden_frame('data_analysis')
             self.update_talbe2()
+
+        self.crawl_btn.setEnabled(True)
+        self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
 
 
     def reset_crawl(self):
@@ -823,6 +848,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         scale = 2
         select_range = self.r_pw.roi_range
         star_data_list = list(self.manual_item.star_data.keys())
+        a = star_data_list[0]
+        b = star_data_list[-1]
         left_stamp = self.timestr2timestamp(star_data_list[0])
         right_stamp = self.timestr2timestamp(star_data_list[-1])
         distance = (right_stamp - left_stamp) * (scale / 2)
@@ -1138,14 +1165,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box.setContent("自动剔野", "请勾选自动剔野项")
             message_box.exec_()
             return
+        # 变化率剔野和手动剔野已合并
 
         self.update_choice_parms()
-
         tmp_data = collections.OrderedDict()
         for i in range(len(self.excel_data)):
             if i in self.select_indexs and self.excel_data[i].dataHead['table_num'] in ['1', 1, '1.0', 1.0]:
                 tmp_data[str(i)] = self.excel_data[i]
-
         # 源包剔野
         # source = {"source": {"index": "value"}}
         start = time.time()
@@ -1163,18 +1189,19 @@ class UiTest(QMainWindow, Ui_MainWindow):
         end = time.time()
         print('源包剔野耗时: ', end - start)
 
-        # 阈值剔野
+        # 阈值剔野, 表格二只进行阈值剔野
+        threshold_tmp_data = collections.OrderedDict()
+        for i in range(len(self.excel_data)):
+            if i in self.select_indexs:
+                threshold_tmp_data[str(i)] = self.excel_data[i]
         start = time.time()
-        for index, star in tmp_data.items():
-            # 表格二不进行阈值剔野
+        for index, star in threshold_tmp_data.items():
             if self.check_choice('threshold', star.dataHead['params_four']):
                 self.threshold_choice(index, star)
         end = time.time()
         print('阈值剔野耗时: ', end - start)
-        # 变化率剔野和手动剔野已合并
-
         # 修改剔野状态
-        for index in tmp_data.keys():
+        for index in threshold_tmp_data.keys():
             self.fileinfo_table_2.setItem(int(index), 1, QTableWidgetItem("自动剔野"))
             self.fileinfo_table_2.item(int(index), 1).setBackground(QColor(100, 255, 0))
             QApplication.processEvents()
@@ -1648,6 +1675,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if '允许' in item['normal_range']:
                 continue
             parms_range = star.get_data_range()
+            if not parms_range:
+                continue
             normal_split = item['normal_range'].replace('°', '').replace('[', '').replace(']', '').replace('~',
                                                                                                            ',').replace(
                 ' ', '').split(',')
