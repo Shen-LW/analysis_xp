@@ -539,12 +539,18 @@ class UiTest(QMainWindow, Ui_MainWindow):
             message_box = MyMessageBox()
             message_box.setContent("登录失败", "网络连接失败")
             message_box.exec_()
+            # 状态还原
+            for index, item in enumerate(self.excel_data):
+                item.dataHead['status'] = status_backup_list[index]
             return
 
         if not is_login:
             message_box = MyMessageBox()
             message_box.setContent("读取失败", "账号或密码错误")
             message_box.exec_()
+            # 状态还原
+            for index, item in enumerate(self.excel_data):
+                item.dataHead['status'] = status_backup_list[index]
             return
         else:
             # 保存账户和密码
@@ -557,7 +563,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             # 状态还原
             for index, item in enumerate(self.excel_data):
                 item.dataHead['status'] = status_backup_list[index]
-            self.update_talbe1()
             return
         self.update_talbe1()
 
