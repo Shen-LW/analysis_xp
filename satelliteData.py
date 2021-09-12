@@ -84,7 +84,8 @@ class SatelliteData:
         with open(file_path, 'r', encoding='gbk') as f:
             head = f.readline()
             head = head.replace('\n', '')
-            status, telemetry_name, telemetry_num, normal_range, telemetry_source, img_num, table_num, params_one, params_two, params_three, params_four, start_time, end_time = head.split('||')
+            status, telemetry_name, telemetry_num, normal_range, telemetry_source, img_num, table_num, params_one, params_two, params_three, params_four, start_time, end_time = head.split(
+                '||')
             table_num = float(table_num)
             dataHead = {
                 "status": status,
@@ -122,7 +123,6 @@ class SatelliteData:
             os.remove(self.file_path)
         self.dataHead['status'] = None
 
-
     def read_line(self, f, whence, line_index):
         f.seek(line_index * 43 + whence)
         line = f.readline()
@@ -132,8 +132,6 @@ class SatelliteData:
         key, value = line.split('||')
         value = float(value)
         return key, value
-
-
 
     def _get_next_time(self, start_time, sampling_grade):
         '''
@@ -145,7 +143,7 @@ class SatelliteData:
         start_datetime = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S.%f")
         if sampling_grade == 0:  # 不抽样
             return None
-        elif sampling_grade == 1: #  2分钟
+        elif sampling_grade == 1:  # 2分钟
             offset = datetime.timedelta(minutes=2)
         elif sampling_grade == 2:  # 15分钟
             offset = datetime.timedelta(minutes=15)
@@ -162,7 +160,7 @@ class SatelliteData:
         next_time = (start_datetime + offset).strftime('%Y-%m-%d %H:%M:%S.%f')
         return next_time
 
-    def resampling(self, start_time, end_time, progress, cache = None):
+    def resampling(self, start_time, end_time, progress, cache=None):
         '''
         对数据进行重新采样
         :param start_time:
@@ -191,7 +189,7 @@ class SatelliteData:
             # 一天之内，不抽样
             sampling_grade = 0
             progress_number = 2
-        elif space.days > 1 and space.days <= 7 :
+        elif space.days > 1 and space.days <= 7:
             # 一周之内，2分钟
             sampling_grade = 1
             progress_number = space.days * 720
@@ -285,7 +283,6 @@ class SatelliteData:
             self.star_data = star_data
         progress.setValue(100)
         progress.hide()
-
 
     def manual_choice(self, left_time, right_time, min_value, max_value, progress):
         '''
@@ -399,9 +396,6 @@ class SatelliteData:
 
         end = time.time()
         print('手动踢野耗时: ', end - start)
-
-
-
 
     def rate_choice(self, base_point, normal_rate, progress):
         try:
@@ -783,7 +777,6 @@ class SatelliteData:
         dst_file = os.path.join('tmp/data_backup', os.path.basename(self.file_path))
         shutil.copyfile(new_filename, dst_file)
 
-
     def undo_cache(self):
         if self.is_undo:
             return self.cache_list.pop()
@@ -796,7 +789,6 @@ class SatelliteData:
                 return self.cache_list.pop()
             else:
                 return None
-
 
     def clear_cache_file(self):
         '''
@@ -824,7 +816,6 @@ class SatelliteData:
             buf = read_f(buf_size)
 
         return lines
-
 
     def get_data_range(self):
         minX = None
@@ -854,7 +845,6 @@ class SatelliteData:
                     minX = v
         return [minX, maxX]
 
-
     def get_last_data(self):
         '''
         获取最后一个参数, 用于生成表格二
@@ -867,11 +857,6 @@ class SatelliteData:
         time_str, value = last_line.split('||')
         # 默认只有一位数据，所以返回第一个字符
         return value[0]
-
-
-
-
-
 
     def init_datetime(self, time_str):
         '''
@@ -889,5 +874,3 @@ class SatelliteData:
         d = datetime.datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second,
                               microsecond=mincrocecond)
         return d
-
-

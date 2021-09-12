@@ -48,6 +48,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.select_indexs = []  # 自动剔野选择行数组
         self.l_plot_data = None  # 左侧绘图数据
         self.r_plot_data = None  # 右侧绘图数据
+        self.pw_time_range = []  # 当前数据的左右时间值
+        self.zoom_in_range_list = []  # 保存放大的范围，用于缩小时返回之前的大小
         self.undo_list = []  # undo队列
         self.undo_base_point_list = []  # 变化率剔野基准点undo队列
         self.setupUi(self)
@@ -422,7 +424,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         for r in range(row):
             item = excel_data[r].dataHead
             selectBtn = self.getSelectButton(r)
-
             # 读取失败的判断
             tmp_text = "未剔野" if item['status'] is not None else "数据读取失败"
             if tmp_text == '数据读取失败':
@@ -444,7 +445,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table_2.setItem(r, 9, QTableWidgetItem(str(item['params_two'])))
             self.fileinfo_table_2.setItem(r, 10, QTableWidgetItem(str(item['params_three'])))
             self.fileinfo_table_2.setItem(r, 11, QTableWidgetItem(str(item['params_four'])))
-
 
     def crawl_callback(self, msg):
         is_ok, content, satellite_data = msg
@@ -501,14 +501,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         # 检查各个控件参数
         create_time = self.create_time_edit.text()
         end_time = self.end_time_edit.text()
-        username = self.username_edit.text()
-        password = self.password_edit.text()
-        model = self.model_edit.text()
-        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-            message_box = MyMessageBox()
-            message_box.setContent("参数缺失", "请完善参数信息")
-            message_box.exec_()
-            return
 
         # 判断时间是否修改，如修改则重新下载新的数据
         status_backup_list = []
@@ -524,6 +516,18 @@ class UiTest(QMainWindow, Ui_MainWindow):
             # 切换到数据分析标签，并填充数据
             self.hidden_frame('data_analysis')
             self.update_talbe2()
+            return
+
+        username = self.username_edit.text()
+        password = self.password_edit.text()
+        model = self.model_edit.text()
+        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+            message_box = MyMessageBox()
+            message_box.setContent("参数缺失", "请完善参数信息")
+            message_box.exec_()
+            # 状态还原
+            for index, item in enumerate(self.excel_data):
+                item.dataHead['status'] = status_backup_list[index]
             return
 
         # # todo: 发布前记得复原
@@ -599,7 +603,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.crawl_btn.setEnabled(True)
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
 
-
     def reset_crawl(self):
         if self.crawl_status:
             message_box = MyMessageBox()
@@ -616,18 +619,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
         else:
             return
 
-
-
-
     def manual_choice(self, r):
-        '''
+        """
         手动剔野按钮事件
         :param r:
         :return:
-        '''
-
+        """
         start = time.time()
-
         self.fileinfo_table_2.selectRow(r)
         self.update_choice_parms()
         self.manual_item = self.excel_data[r]
@@ -664,6 +662,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_pw.is_manual_edit = False
         self.r_pw.is_rate_edit = False
         self.manual_lable.setText(self.manual_item.dataHead['telemetry_num'] + '-手动剔野')
+        self.pw_time_range = [self.manual_item.dataHead['start_time'], self.manual_item.dataHead['end_time']]
+        self.zoom_in_range_list = []
 
         # 放大与缩小
         self.zoom_in_btn.setEnabled(False)
@@ -819,6 +819,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
             left_time = self.manual_item.dataHead['start_time']
         if right_time > self.manual_item.dataHead['end_time']:
             right_time = self.manual_item.dataHead['end_time']
+        self.zoom_in_range_list.append(self.pw_time_range)
+        self.pw_time_range = [left_time, right_time]
 
         # 重新抽样
         self.manual_item.resampling(left_time, right_time, self.progress)
@@ -844,39 +846,12 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.l_pw.autoRange()
 
     def zoom_out(self):
-        # 默认缩放倍率为1
-        scale = 2
-        select_range = self.r_pw.roi_range
-        star_data_list = list(self.manual_item.star_data.keys())
-        a = star_data_list[0]
-        b = star_data_list[-1]
-        left_stamp = self.timestr2timestamp(star_data_list[0])
-        right_stamp = self.timestr2timestamp(star_data_list[-1])
-        distance = (right_stamp - left_stamp) * (scale / 2)
-        # 缩放50%
-        left_time = self.timestamp2timestr(left_stamp - distance)
-        right_time = self.timestamp2timestr(right_stamp + distance)
-
-        # if select_range is None:
-        #     # 如果选择区域为0，中心为区间中心
-        #     left_stamp = self.timestr2timestamp(star_data_list[0])
-        #     right_stamp = self.timestr2timestamp(star_data_list[-1])
-        #     distance = (right_stamp - left_stamp) * (scale / 2)
-        #     # 缩放50%
-        #     left_time = self.timestamp2timestr(left_stamp - distance)
-        #     right_time = self.timestamp2timestr(right_stamp + distance)
-        # else:
-        #     # todo 可以考虑优化缩小逻辑
-        #     # 如果选择区域，中心点为选择区域中心
-        #     left_stamp = select_range[0]
-        #     right_stamp = select_range[2]
-        #     left_time = self.timestamp2timestr()
-        #     right_time = self.timestamp2timestr()
-
-        if left_time < self.manual_item.dataHead['start_time']:
+        if not self.zoom_in_range_list:
             left_time = self.manual_item.dataHead['start_time']
-        if right_time > self.manual_item.dataHead['end_time']:
             right_time = self.manual_item.dataHead['end_time']
+        else:
+            left_time, right_time = self.zoom_in_range_list.pop()
+        self.pw_time_range = [left_time, right_time]
 
         # 重新抽样
         self.manual_item.resampling(left_time, right_time, self.progress)
@@ -1008,14 +983,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 right_time = self.manual_item.dataHead['end_time']
 
             self.manual_item.manual_choice(left_time, right_time, float(select_range[1]), float(select_range[3]), self.progress)
+            curr_left_time, curr_right_time = self.pw_time_range
 
-            # 对缓存数据重新采样
-            star_data_list = list(self.manual_item.star_data.keys())
-            left_stamp = self.timestr2timestamp(star_data_list[0])
-            right_stamp = self.timestr2timestamp(star_data_list[-1])
-            # 当前区间
-            curr_left_time = self.timestamp2timestr(left_stamp)
-            curr_right_time = self.timestamp2timestr(right_stamp)
             self.manual_item.resampling(curr_left_time, curr_right_time, self.progress, self.manual_item.cache_list[-1])
             x, y = self.get_choice_data_xy(self.manual_item.star_cache_data)
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
@@ -1036,7 +1005,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 return
             else:
                 try:
-                    normal_rate = float(normal_rate.replace(' ',''))
+                    normal_rate = float(normal_rate.replace(' ', ''))
                 except:
                     message_box = MyMessageBox()
                     message_box.setContent("提示", "变化率剔野参数不是数字")
@@ -1050,13 +1019,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 message_box.exec_()
                 return
 
-            # 对缓存数据重新采样
-            star_data_list = list(self.manual_item.star_data.keys())
-            left_stamp = self.timestr2timestamp(star_data_list[0])
-            right_stamp = self.timestr2timestamp(star_data_list[-1])
             # 当前区间
-            curr_left_time = self.timestamp2timestr(left_stamp)
-            curr_right_time = self.timestamp2timestr(right_stamp)
+            curr_left_time, curr_right_time = self.pw_time_range
+
             self.manual_item.resampling(curr_left_time, curr_right_time, self.progress, self.manual_item.cache_list[-1])
             x, y = self.get_choice_data_xy(self.manual_item.star_cache_data)
             self.r_plot_data.setData(x=x, y=y, pen=pg.mkPen('r', width=1))
@@ -1098,7 +1063,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         self.r_pw.roi_range = None
         self.r_pw.autoRange()
         self.l_pw.autoRange()
-
 
     def save_chaneg(self):
         message_box = MyMessageBox()
@@ -1258,7 +1222,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 # 重新选择自动剔野项
                 self.change_auto_choice_index(1)
 
-
     def tmp_write(self, cache_size, star, source_f, out_f):
         source_f.readline()
         star.dataHead['params_one'] = '[-0.5, 0.5]'
@@ -1280,10 +1243,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 out_f.close()
                 break
             out_f.writelines(source_lines)
-
-
-
-
 
     def source_choice(self, star_list):
         # {"index": "star"}
@@ -1425,7 +1384,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
                     threshold_list.remove(delete_threshold_list[d_index])
                 delete_index.clear()
 
-
         self.progress.hide()
         # 保证文件关闭
         for f in source_f_list:
@@ -1439,8 +1397,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 os.remove(star.file_path)
             tmp_file_name = star.file_path[:-5] + '.tmp'
             os.rename(tmp_file_name, star.file_path)
-
-
 
     def threshold_choice(self, index, star):
         params_two = star.dataHead['params_two']
@@ -1497,8 +1453,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
         if os.path.isfile(star.file_path):
             os.remove(star.file_path)
         os.rename(tmp_file_name, star.file_path)
-
-
 
     def check_choice(self, module_name, params_four):
         params = params_four.replace("(", '').replace("（", '').replace(')', '').replace('）', ''). \
@@ -1756,10 +1710,11 @@ class UiTest(QMainWindow, Ui_MainWindow):
         color_list = [(220, 20, 60), (0, 0, 255), (0, 255, 0), (255, 140, 0), (0, 255, 255), (255, 0, 255), (0, 0, 139)]
         index = 0
         split_name_list = []
+
         for star in star_list:
             color = color_list[index % len(color_list)]
             index = index + 1
-            star.resampling(star.dataHead['start_time'], star.dataHead['end_time'],  self.progress)
+            star.resampling(star.dataHead['start_time'], star.dataHead['end_time'], self.progress)
             x, y = self.get_choice_data_xy(star.star_data)
             draw = DrawWindow(index, color, x, y, split_name_list)
             draw.showFullScreen()
@@ -1778,8 +1733,6 @@ class UiTest(QMainWindow, Ui_MainWindow):
     def range_cut(self, data_str):
         rtn = str([format(float(item), '.4f') for item in json.loads(data_str)]).replace("'", '')
         return rtn
-
-
 
     def timestr2timestamp(self, timestr):
         datetime_obj = datetime.datetime.strptime(timestr, "%Y-%m-%d %H:%M:%S.%f")

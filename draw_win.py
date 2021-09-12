@@ -7,15 +7,16 @@ from pyqtgraph.exporters import ImageExporter
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
 
+
 class TimeAxisItem(pg.AxisItem):
     def tickStrings(self, values, scale, spacing):
-        return [str(datetime.datetime.fromtimestamp(values[0])).replace(' ', '|') for value in values]
+        return [str(datetime.datetime.fromtimestamp(value)).replace(' ', '|') for value in values]
 
 
-
-from PyQt5.QtWidgets import  QVBoxLayout, QMainWindow, QWidget
+from PyQt5.QtWidgets import QVBoxLayout, QMainWindow, QWidget
 from PyQt5.QtGui import QFont
 import pyqtgraph as pg
+
 
 class DrawWindow(QMainWindow):
     def __init__(self, index, color, x, y, split_name_list):
@@ -44,7 +45,6 @@ class DrawWindow(QMainWindow):
         left_axis.tickFont = font
         bottom_axis = pltItem.getAxis("bottom")
         bottom_axis.tickFont = font
-
 
         exporter = ImageExporter(self.plt.getPlotItem())
         exporter.parameters()['width'] = 800
