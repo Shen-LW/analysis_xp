@@ -137,3 +137,20 @@ if __name__ == '__main__':
     last_line = last_line.replace('\r\n', '')
     time_str, value = last_line.split('||')
     c = 2 + 1
+
+
+    import time
+    a = [i for i in range(1000000)]
+    start = time.time()
+    for _ in range(len(a)):
+        a.pop()
+    end = time.time()
+    print('pop耗时', end - start)
+
+    b = [i for i in range(1000000)]
+    b.reverse()
+    start = time.time()
+    for _ in range(len(b)):
+        b.pop()
+    end = time.time()
+    print('pop[0]耗时', end - start)

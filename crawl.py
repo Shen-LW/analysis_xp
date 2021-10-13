@@ -129,9 +129,9 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
                 print(res.text)
                 raise ValueError('请求数据出错')
 
-        # with open('downlowd.txt', 'a+', encoding='utf-8') as f:
-        #     f.write('>>>>>>>')
-        #     f.write(res.text)
+        with open('downlowd.txt', 'a+', encoding='utf-8') as f:
+            f.write('>>>>>>>')
+            f.write(res.text)
 
         content = res.text.replace('NaN', 'null')
         r_json = hjson.loads(content)
@@ -206,7 +206,8 @@ def crawl(satellite_data, username, password, model_name, telemetry_name, start_
             return False, "未解析到遥测代号", satellite_data
         # 实际爬取数据
         crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
-        satellite_data.rename_extension()
+        item_name = '_'.join([str(model_name), str(start_time), str(end_time)])
+        satellite_data.rename_extension(item_name)
         return True, "读取成功", satellite_data
     except Exception as e:
         traceback.print_exc()
@@ -310,7 +311,10 @@ def crawl_test(satellite_data, model_name, telemetry_name, start_time, end_time)
                 gc.collect()
                 break
 
-        satellite_data.rename_extension()
+        start_time = trans_time(str(start_time))
+        end_time = trans_time(str(end_time))
+        item_name = '_'.join([str(model_name), start_time, end_time])
+        satellite_data.rename_extension(item_name)
         return True, "爬取成功", satellite_data
     except Exception as e:
         traceback.print_exc()

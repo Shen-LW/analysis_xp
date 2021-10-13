@@ -243,10 +243,16 @@ class SatelliteData:
                     tmp_lines = f.readlines(100 * 1024 * 1024)
                     if not tmp_lines:
                         break
-                    for line in tmp_lines:
+                    # tmp_lines反转，方便pop
+                    tmp_lines.reverse()
+                    while 1:
+                        if len(tmp_lines) == 0:
+                            break
+                        line = tmp_lines[-1]
                         key = line[:23]
                         value = float(line[25:41])
                         if key < start_time:
+                            tmp_lines.pop()
                             continue
                         elif next_time > end_time:
                             break
@@ -259,6 +265,7 @@ class SatelliteData:
                                     min_point = [key, value]
                                 elif value > max_point[1]:
                                     max_point = [key, value]
+                            tmp_lines.pop()
                         else:
                             next_time = self._get_next_time(next_time, sampling_grade)
                             if min_point is not None and max_point is not None:
@@ -760,7 +767,7 @@ class SatelliteData:
             traceback.print_exc()
             return False, '变化率剔野遇见错误'
 
-    def rename_extension(self):
+    def rename_extension(self, item_name):
         '''
         完成后修改文件名结尾
         :return:
@@ -774,7 +781,10 @@ class SatelliteData:
         self.file_path = new_filename
         self.dataHead['status'] = '读取成功'
         # 另存原始数据
-        dst_file = os.path.join('tmp/data_backup', os.path.basename(self.file_path))
+        dst_dir = os.path.join('tmp/data_backup', item_name)
+        dst_file = os.path.join(dst_dir, os.path.basename(self.file_path))
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
         shutil.copyfile(new_filename, dst_file)
 
     def undo_cache(self):

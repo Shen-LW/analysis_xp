@@ -116,9 +116,9 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table.setHidden(False)
             self.frame_7.setHidden(False)
             self.label_2.setHidden(False)
-            self.open_sdat_btn.setHidden(False)
 
             self.frame_2.setHidden(True)
+            self.open_sdat_btn.setHidden(True)
             self.fileinfo_table_2.setHidden(True)
 
             self.frame_3.setHidden(True)
@@ -135,9 +135,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.fileinfo_table.setHidden(True)
             self.frame_7.setHidden(True)
             self.label_2.setHidden(True)
-            self.open_sdat_btn.setHidden(True)
+
 
             self.frame_2.setHidden(False)
+            self.open_sdat_btn.setHidden(False)
             self.fileinfo_table_2.setHidden(False)
 
             self.frame_3.setHidden(True)
@@ -294,6 +295,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             satellite_data = SatelliteData(dataHead=dataHead, file_path=file_path)
             self.excel_data.append(satellite_data)
         self.update_talbe1()
+        self.update_talbe2()
         self.crawl_btn.setEnabled(True)
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
 
@@ -316,7 +318,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         back_up_dir = os.path.abspath('tmp/data_backup')
         if os.path.normcase(file_dir) == os.path.normcase(back_up_dir):
             message_box = MyMessageBox()
-            message_box.setContent("请检查数据", "不允许加载备份数据")
+            message_box.setContent("请检查数据", "不允许加载备份文件夹数据")
             message_box.exec_()
             return
 
@@ -356,6 +358,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.excel_data.append(copy.deepcopy(star))
 
         self.update_talbe1()
+        self.update_talbe2()
         self.crawl_btn.setEnabled(True)
         self.crawl_btn.setStyleSheet('font: 10pt "Microsoft YaHei UI";background-color:#455ab3;color:#fff;')
 
@@ -430,11 +433,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
                 self.fileinfo_table_2.item(r, 1).setBackground(QColor(255, 185, 15))
             else:
-                if item['table_num'] in ['1', 1, '1.0', 1.0, '2', 2, '2.0', 2.0]:
-                    self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
-                self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
-                updateBtn = self.buttonForRow(r)
-                self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
+                # 判断原始文件是否存在
+                if os.path.exists(self.excel_data[r].file_path):
+                    if item['table_num'] in ['1', 1, '1.0', 1.0, '2', 2, '2.0', 2.0]:
+                        self.fileinfo_table_2.setCellWidget(r, 0, selectBtn)
+                    self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem(tmp_text))
+                    updateBtn = self.buttonForRow(r)
+                    self.fileinfo_table_2.setCellWidget(r, 12, updateBtn)
+                else:
+                    self.fileinfo_table_2.setItem(r, 1, QTableWidgetItem('未读取'))
             self.fileinfo_table_2.setItem(r, 2, QTableWidgetItem(str(item['telemetry_name'])))
             self.fileinfo_table_2.setItem(r, 3, QTableWidgetItem(str(item['telemetry_num'])))
             self.fileinfo_table_2.setItem(r, 4, QTableWidgetItem(str(item['normal_range'])))
@@ -530,8 +537,8 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 item.dataHead['status'] = status_backup_list[index]
             return
 
-        # # todo: 发布前记得复原
-        # # 判断账号密码是否正确
+        # todo: 发布前记得复原
+        # 判断账号密码是否正确
         try:
             is_login = check_login(username, password)
         except Exception as e:
@@ -1147,14 +1154,17 @@ class UiTest(QMainWindow, Ui_MainWindow):
         source_type = collections.OrderedDict()
         for index, star in tmp_data.items():
             dataHead = star.dataHead
-            if not self.check_choice("source", dataHead["params_four"]):
-                continue
             if dataHead["telemetry_source"] not in source_type.keys():
-                source_type[dataHead["telemetry_source"]] = collections.OrderedDict()
-            source_type[dataHead["telemetry_source"]][index] = star
+                source_type[dataHead["telemetry_source"]] = {'star_list': collections.OrderedDict(),
+                                                             'appebdix_list': collections.OrderedDict()}
+            if self.check_choice("source", dataHead["params_four"]):
+                source_type[dataHead["telemetry_source"]]['star_list'][index] = star
+            else:
+                source_type[dataHead["telemetry_source"]]['appebdix_list'][index] = star
 
-        for type, star_list in source_type.items():
-            self.source_choice(star_list)
+        for type, ls in source_type.items():
+            star_list, appendix_list = ls.values()
+            self.source_choice(star_list, appendix_list)
         end = time.time()
         print('源包剔野耗时: ', end - start)
 
@@ -1249,7 +1259,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 break
             out_f.writelines(source_lines)
 
-    def source_choice(self, star_list):
+    def source_choice(self, star_list, appendix_list):
         # {"index": "star"}
         # 长度小于5，直接返回
         if len(star_list) < 4:
@@ -1284,6 +1294,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
             threshold = threshold.split(',')
             threshold_list.append(threshold)
 
+        # 创建附属的只剔除数据不参与判断的文件
+        appendix_f_list = []
+        appendix_tmp_f_list = []
+        for index_appendix_star, appendix_star in appendix_list.items():
+            appendix_f_list.append(open(appendix_star.file_path, 'r', encoding='gbk'))
+            tmp_appendix_file_name = appendix_star.file_path[:-5] + '.tmp'
+            appendix_tmp_f_list.append(open(tmp_appendix_file_name, 'w', encoding='gbk'))
+
+
         # 写入文件头部信息
         # 并且读取第一次数据
         time_line_list = []
@@ -1299,6 +1318,22 @@ class UiTest(QMainWindow, Ui_MainWindow):
             time_str_list.append(time_str)
             time_value_list.append(time_value)
 
+
+        # 附属文件写入头部信息，并读取第一条数据
+        appendix_time_line_list = []
+        appendix_time_str_list = []
+        appendix_time_value_list = []
+        for index, appendix_f in enumerate(appendix_f_list):
+            line = appendix_f.readline()
+            appendix_tmp_f_list[index].write(list(appendix_list.values())[index].get_headline())
+            appendix_time_line = appendix_f.readline()
+            appendix_time_line_list.append(appendix_time_line)
+            appendix_time_line = appendix_time_line.replace('\n', '')
+            appendix_time_str, appendix_time_value = appendix_time_line.split('||')
+            appendix_time_str_list.append(appendix_time_str)
+            appendix_time_value_list.append(appendix_time_value)
+
+
         # 依次步进剔野
         for i in range(point_total * len(star_list)):
             if i % 10000 == 0:
@@ -1308,6 +1343,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             if not source_f_list:
                 break
             delete_index = []
+            appendix_delete_index = []
             # 如果长度小于4了，直接写入
             if len(source_f_list) < 4:
                 for j in range(len(source_f_list)):
@@ -1318,14 +1354,25 @@ class UiTest(QMainWindow, Ui_MainWindow):
                     else:
                         tmp_f_list[j].write(source_line)
                         tmp_f_list[j].flush()
+
+                # 附属文件直接写入
+                for k in range(len(appendix_f_list)):
+                    appendix_line = appendix_f_list[k].readline()
+                    line = appendix_line.replace('\n', '')
+                    if line == '' or line is None:
+                        appendix_delete_index.append(k)
+                    else:
+                        appendix_tmp_f_list[k].write(appendix_line)
+                        appendix_tmp_f_list[k].flush()
             else:
                 # 判断当前最小值
                 min_str = min(time_str_list)
                 # 判断最小值的个数
                 number = time_str_list.count(min_str)
                 delete_index = []
+                appendix_delete_index = []
                 if number >= 4:  # 同一时间段大于4个
-                    # 判单时间最小值对应的野点格式有
+                    # 判单时间最小值对应的野点个数
                     n = 0
                     for index, time_str in enumerate(time_str_list):
                         if time_str == min_str:
@@ -1348,6 +1395,32 @@ class UiTest(QMainWindow, Ui_MainWindow):
                                 time_line_list[index] = source_line
                                 time_str_list[index] = time_str
                                 time_value_list[index] = value
+
+                    # 附属文件处理
+                    for appendix_index, appendix_time_str in enumerate(appendix_time_str_list):
+                        if appendix_time_str < min_str:
+                            appendix_tmp_f_list[appendix_index].write(appendix_time_line_list[appendix_index])
+                            appendix_line = appendix_f_list[appendix_index].readline()
+                            line = appendix_line.replace('\n', '')
+                            if line == '' or line is None:
+                                appendix_delete_index.append(appendix_index)
+                            else:
+                                appendix_time_str, appendix_value = line.split('||')
+                                appendix_time_line_list[appendix_index] = appendix_line
+                                appendix_time_str_list[appendix_index] = appendix_time_str
+                                appendix_time_value_list[appendix_index] = appendix_value
+                        elif appendix_time_str == min_str:
+                            if n < 4:  # 野点数小于4 直接写入
+                                appendix_tmp_f_list[appendix_index].write(appendix_time_line_list[appendix_index])
+                            appendix_line = appendix_f_list[appendix_index].readline()
+                            line = appendix_line.replace('\n', '')
+                            if line == '' or line is None:
+                                appendix_delete_index.append(appendix_index)
+                            else:
+                                appendix_time_str, appendix_value = line.split('||')
+                                appendix_time_line_list[appendix_index] = appendix_line
+                                appendix_time_str_list[appendix_index] = appendix_time_str
+                                appendix_time_value_list[appendix_index] = appendix_value
                 else:  # 最小值写入并步进
                     for index, time_str in enumerate(time_str_list):
                         if time_str == min_str:
@@ -1361,6 +1434,22 @@ class UiTest(QMainWindow, Ui_MainWindow):
                                 time_line_list[index] = source_line
                                 time_str_list[index] = time_str
                                 time_value_list[index] = value
+
+                    # 附属文件判断并写入
+                    for appendix_index, appendix_time_str in enumerate(appendix_time_str_list):
+                        if appendix_time_str <= min_str:
+                            appendix_tmp_f_list[appendix_index].write(appendix_time_line_list[appendix_index])
+
+                            appendix_line = appendix_f_list[appendix_index].readline()
+                            line = appendix_line.replace('\n', '')
+                            if line == '' or line is None:
+                                appendix_delete_index.append(appendix_index)
+                            else:
+                                appendix_time_str, appendix_value = line.split('||')
+                                appendix_time_line_list[appendix_index] = appendix_line
+                                appendix_time_str_list[appendix_index] = appendix_time_str
+                                appendix_time_value_list[appendix_index] = appendix_value
+
             if delete_index:
                 # 避免在循环中删除循环本身的对象
                 # 准备对象
@@ -1389,11 +1478,44 @@ class UiTest(QMainWindow, Ui_MainWindow):
                     threshold_list.remove(delete_threshold_list[d_index])
                 delete_index.clear()
 
+            # 附属对象删除
+            if appendix_delete_index:
+                # 避免在循环中删除循环本身的对象
+                # 准备对象
+                appendix_delete_source_f_list = []
+                appendix_delete_tmp_f_list = []
+                appendix_delete_time_line_list = []
+                appendix_delete_time_str_list = []
+                appendix_delete_time_value_list = []
+                for apix in appendix_delete_index:
+                    appendix_f_list[apix].close()
+                    appendix_delete_source_f_list.append(appendix_f_list[apix])
+                    appendix_tmp_f_list[apix].close()
+                    appendix_delete_tmp_f_list.append(appendix_tmp_f_list[apix])
+                    appendix_delete_time_line_list.append(appendix_time_line_list[apix])
+                    appendix_delete_time_str_list.append(appendix_time_str_list[apix])
+                    appendix_delete_time_value_list.append(appendix_time_value_list[apix])
+                # 删除
+                for appendix_index in range(len(appendix_delete_index)):
+                    appendix_f_list.remove(appendix_delete_source_f_list[appendix_index])
+                    appendix_tmp_f_list.remove(appendix_delete_tmp_f_list[appendix_index])
+                    appendix_time_line_list.remove(appendix_delete_time_line_list[appendix_index])
+                    appendix_time_str_list.remove(appendix_delete_time_str_list[appendix_index])
+                    appendix_time_value_list.remove(appendix_delete_time_value_list[appendix_index])
+                appendix_delete_index.clear()
+
+
         self.progress.hide()
         # 保证文件关闭
         for f in source_f_list:
             f.close()
         for f in tmp_f_list:
+            f.close()
+
+        # 附属文件关闭
+        for f in appendix_f_list:
+            f.close()
+        for f in appendix_tmp_f_list:
             f.close()
 
         # 修改拷贝文件
@@ -1402,6 +1524,15 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 os.remove(star.file_path)
             tmp_file_name = star.file_path[:-5] + '.tmp'
             os.rename(tmp_file_name, star.file_path)
+
+        # 拷贝附属文件
+        for index_str, appendix_star in appendix_list.items():
+            if os.path.isfile(appendix_star.file_path):
+                os.remove(appendix_star.file_path)
+            appendix_tmp_file_name = appendix_star.file_path[:-5] + '.tmp'
+            os.rename(appendix_tmp_file_name, appendix_star.file_path)
+
+
 
     def threshold_choice(self, index, star):
         params_two = star.dataHead['params_two']
