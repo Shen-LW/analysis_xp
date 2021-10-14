@@ -88,7 +88,8 @@ def find_grant(date_stamp, cookie, sat_id, telemetry_name):
     return items['records']
 
 
-def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time):
+
+def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, tm_param_type, start_time, end_time):
     menu_headers = {
         'Cookie': cookie,
         'Origin': 'http://www.ygzx.cast',
@@ -102,7 +103,7 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
 
     limit = 6000
     tmParamStr = str(start_time) + '|' + str(end_time) + "|" + str(mid) + "&" + str(telemetry_num) + '&' + str(
-        telemetry_id) + '&0|'
+        telemetry_id) + '&' + str(tm_param_type) + '|'
     form_data = {
         '_dc': date_stamp,
         'type': 0,
@@ -119,6 +120,10 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
     new_start_time = str(start_time)
     while 1:
         res = requests.post(url=post_url, headers=menu_headers, data=form_data, timeout=60)
+
+        print('post_url: ', post_url)
+        print('menu_headers: ', menu_headers)
+        print('form_data: ', form_data)
         # 失效时最多重试5次
         if res.status_code != 200:
             for i in range(5):
@@ -152,7 +157,7 @@ def crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_n
             new_start_time = items[-1]["T0"]
             new_start_time = new_start_time.replace('-', '').replace(' ', '').replace(':', '').replace('.', '')
             form_data["tmParamStr"] = str(new_start_time) + '|' + str(end_time) + "|" + str(mid) + "&" + str(
-                telemetry_num) + '&' + str(telemetry_id) + '&0|'
+                telemetry_num) + '&' + str(telemetry_id) + '&' + str(tm_param_type) + '|'
 
         items = items[:-1]  # 起止时间会导致一个数据的重复
         tmp_data = parse_data(items)
@@ -196,16 +201,18 @@ def crawl(satellite_data, username, password, model_name, telemetry_name, start_
         # 解析遥测代号
         telemetry_id = None
         telemetry_num = None
+        tm_param_type = None
         numlist = find_grant(date_stamp, cookie, sys_resource_id, telemetry_name)
         for item in numlist:
             if item["code"] == telemetry_name:
                 telemetry_id = item["id"]
                 telemetry_num = item["num"]
+                tm_param_type = item["tm_param_type"]
                 break
         else:
             return False, "未解析到遥测代号", satellite_data
         # 实际爬取数据
-        crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, start_time, end_time)
+        crawldata(satellite_data, date_stamp, cookie, mid, telemetry_id, telemetry_num, tm_param_type, start_time, end_time)
         item_name = '_'.join([str(model_name), str(start_time), str(end_time)])
         satellite_data.rename_extension(item_name)
         return True, "读取成功", satellite_data
