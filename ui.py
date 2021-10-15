@@ -327,7 +327,13 @@ class UiTest(QMainWindow, Ui_MainWindow):
         new_telemetry_num_list = []
         new_telemetry_star_list = {}
         for filename in filename_list:
-            tmp_star = SatelliteData(file_path=filename, dataHead=None)
+            try:
+                tmp_star = SatelliteData(file_path=filename, dataHead=None)
+            except:
+                message_box = MyMessageBox()
+                message_box.setContent("数据加载错误", os.path.basename(filename).split("_")[0])
+                message_box.exec_()
+                return
             if tmp_star.dataHead['telemetry_num'] not in new_telemetry_num_list:
                 new_telemetry_num_list.append(tmp_star.dataHead['telemetry_num'])
                 new_telemetry_star_list[tmp_star.dataHead['telemetry_num']] = tmp_star
@@ -528,40 +534,40 @@ class UiTest(QMainWindow, Ui_MainWindow):
         username = self.username_edit.text()
         password = self.password_edit.text()
         model = self.model_edit.text()
-        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-            message_box = MyMessageBox()
-            message_box.setContent("参数缺失", "请完善参数信息")
-            message_box.exec_()
-            # 状态还原
-            for index, item in enumerate(self.excel_data):
-                item.dataHead['status'] = status_backup_list[index]
-            return
+        # if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("参数缺失", "请完善参数信息")
+        #     message_box.exec_()
+        #     # 状态还原
+        #     for index, item in enumerate(self.excel_data):
+        #         item.dataHead['status'] = status_backup_list[index]
+        #     return
 
         # todo: 发布前记得复原
-        # 判断账号密码是否正确
-        try:
-            is_login = check_login(username, password)
-        except Exception as e:
-            print('错误内容', e)
-            message_box = MyMessageBox()
-            message_box.setContent("登录失败", "网络连接失败")
-            message_box.exec_()
-            # 状态还原
-            for index, item in enumerate(self.excel_data):
-                item.dataHead['status'] = status_backup_list[index]
-            return
-
-        if not is_login:
-            message_box = MyMessageBox()
-            message_box.setContent("读取失败", "账号或密码错误")
-            message_box.exec_()
-            # 状态还原
-            for index, item in enumerate(self.excel_data):
-                item.dataHead['status'] = status_backup_list[index]
-            return
-        else:
-            # 保存账户和密码
-            self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # # 判断账号密码是否正确
+        # try:
+        #     is_login = check_login(username, password)
+        # except Exception as e:
+        #     print('错误内容', e)
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("登录失败", "网络连接失败")
+        #     message_box.exec_()
+        #     # 状态还原
+        #     for index, item in enumerate(self.excel_data):
+        #         item.dataHead['status'] = status_backup_list[index]
+        #     return
+        #
+        # if not is_login:
+        #     message_box = MyMessageBox()
+        #     message_box.setContent("读取失败", "账号或密码错误")
+        #     message_box.exec_()
+        #     # 状态还原
+        #     for index, item in enumerate(self.excel_data):
+        #         item.dataHead['status'] = status_backup_list[index]
+        #     return
+        # else:
+        #     # 保存账户和密码
+        #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
         # 选取保存文件夹
         base_dir = 'tmp/data'
@@ -587,11 +593,16 @@ class UiTest(QMainWindow, Ui_MainWindow):
                 # 更新可能修改的起止时间
                 create_time_1 = self.trans_data_time(create_time)
                 end_time_1 = self.trans_data_time(end_time)
-                filename = satellite_data.dataHead['telemetry_num'] + '_' + trans_time(create_time)[:-5] + '-' + trans_time(end_time)[:-5] + '.tmp'
-                file_path = os.path.join(folder_path, filename)
                 satellite_data.dataHead['start_time'] = create_time_1
                 satellite_data.dataHead['end_time'] = end_time_1
                 satellite_data.dataHead['status'] = '未读取'
+
+                item_name = '_'.join([str(model), str(trans_time(create_time)), str(trans_time(end_time))])
+                dst_dir = os.path.join(folder_path, item_name)
+                if not os.path.exists(dst_dir):
+                    os.makedirs(dst_dir)
+                filename = satellite_data.dataHead['telemetry_num'] + '_' + trans_time(create_time)[:-5] + '-' + trans_time(end_time)[:-5] + '.tmp'
+                file_path = os.path.join(dst_dir, filename)
                 satellite_data.file_path = file_path
 
                 tmp_thread = CrawlThread(satellite_data, username, password, model, create_time, end_time)

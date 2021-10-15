@@ -786,6 +786,7 @@ class SatelliteData:
         if not os.path.exists(dst_dir):
             os.makedirs(dst_dir)
         shutil.copyfile(new_filename, dst_file)
+        self.is_write_dataHead = False
 
     def undo_cache(self):
         if self.is_undo:
