@@ -534,40 +534,40 @@ class UiTest(QMainWindow, Ui_MainWindow):
         username = self.username_edit.text()
         password = self.password_edit.text()
         model = self.model_edit.text()
-        # if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("参数缺失", "请完善参数信息")
-        #     message_box.exec_()
-        #     # 状态还原
-        #     for index, item in enumerate(self.excel_data):
-        #         item.dataHead['status'] = status_backup_list[index]
-        #     return
+        if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
+            message_box = MyMessageBox()
+            message_box.setContent("参数缺失", "请完善参数信息")
+            message_box.exec_()
+            # 状态还原
+            for index, item in enumerate(self.excel_data):
+                item.dataHead['status'] = status_backup_list[index]
+            return
 
         # todo: 发布前记得复原
-        # # 判断账号密码是否正确
-        # try:
-        #     is_login = check_login(username, password)
-        # except Exception as e:
-        #     print('错误内容', e)
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("登录失败", "网络连接失败")
-        #     message_box.exec_()
-        #     # 状态还原
-        #     for index, item in enumerate(self.excel_data):
-        #         item.dataHead['status'] = status_backup_list[index]
-        #     return
-        #
-        # if not is_login:
-        #     message_box = MyMessageBox()
-        #     message_box.setContent("读取失败", "账号或密码错误")
-        #     message_box.exec_()
-        #     # 状态还原
-        #     for index, item in enumerate(self.excel_data):
-        #         item.dataHead['status'] = status_backup_list[index]
-        #     return
-        # else:
-        #     # 保存账户和密码
-        #     self.config.change_login(self.username_edit.text(), self.password_edit.text())
+        # 判断账号密码是否正确
+        try:
+            is_login = check_login(username, password)
+        except Exception as e:
+            print('错误内容', e)
+            message_box = MyMessageBox()
+            message_box.setContent("登录失败", "网络连接失败")
+            message_box.exec_()
+            # 状态还原
+            for index, item in enumerate(self.excel_data):
+                item.dataHead['status'] = status_backup_list[index]
+            return
+
+        if not is_login:
+            message_box = MyMessageBox()
+            message_box.setContent("读取失败", "账号或密码错误")
+            message_box.exec_()
+            # 状态还原
+            for index, item in enumerate(self.excel_data):
+                item.dataHead['status'] = status_backup_list[index]
+            return
+        else:
+            # 保存账户和密码
+            self.config.change_login(self.username_edit.text(), self.password_edit.text())
 
         # 选取保存文件夹
         base_dir = 'tmp/data'
