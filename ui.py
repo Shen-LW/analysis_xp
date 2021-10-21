@@ -261,16 +261,16 @@ class UiTest(QMainWindow, Ui_MainWindow):
         row_content = sheet_1.row_values(0)  # 获取指定行的数据，返回列表，排序自0开始
         row_number = sheet_1.nrows  # 获取有数据的最大行
         for i in range(1, row_number):
-            telemetry_name = sheet_1.cell(i, 0).value
-            telemetry_num = sheet_1.cell(i, 1).value
-            normal_range = sheet_1.cell(i, 2).value
-            telemetry_source = sheet_1.cell(i, 3).value
-            img_num = sheet_1.cell(i, 4).value
+            telemetry_name = sheet_1.cell(i, 0).value.strip()
+            telemetry_num = sheet_1.cell(i, 1).value.strip()
+            normal_range = sheet_1.cell(i, 2).value.strip()
+            telemetry_source = sheet_1.cell(i, 3).value.strip()
+            img_num = sheet_1.cell(i, 4).value.strip()
             table_num = sheet_1.cell(i, 5).value
-            params_one = sheet_1.cell(i, 6).value
-            params_two = sheet_1.cell(i, 7).value
+            params_one = sheet_1.cell(i, 6).value.strip()
+            params_two = sheet_1.cell(i, 7).value.strip()
             params_three = sheet_1.cell(i, 8).value
-            params_four = sheet_1.cell(i, 9).value
+            params_four = sheet_1.cell(i, 9).value.strip()
             create_time_text = self.create_time_edit.text()
             end_time_text = self.end_time_edit.text()
             start_time = self.trans_data_time(create_time_text)
@@ -470,7 +470,10 @@ class UiTest(QMainWindow, Ui_MainWindow):
             self.progress.show()
             QApplication.processEvents()
         else:
-            print('读取失败，telemetry_num = ', satellite_data.dataHead['telemetry_num'])
+            print('读取失败，telemetry_num = ', satellite_data.dataHead['telemetry_num'], content)
+            message_box = MyMessageBox()
+            message_box.setContent("读取失败", content + " \n" + str(satellite_data.dataHead['telemetry_num']))
+            message_box.exec_()
             satellite_data.dataHead['status'] = None
             self.reset_crawl_btn.setHidden(False)
             self.fileinfo_table.setItem(index, 0, QTableWidgetItem("读取失败"))
@@ -534,6 +537,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
         username = self.username_edit.text()
         password = self.password_edit.text()
         model = self.model_edit.text()
+        model = model.strip()
         if username == '' or password == '' or model == '' or create_time == '' or end_time == '' or self.excel_data == []:
             message_box = MyMessageBox()
             message_box.setContent("参数缺失", "请完善参数信息")
@@ -1145,6 +1149,7 @@ class UiTest(QMainWindow, Ui_MainWindow):
             item['params_three'] = self.fileinfo_table_2.item(int(index), 10).text()
             item['params_four'] = self.fileinfo_table_2.item(int(index), 11).text()
 
+
     def auto_choice(self):
         self.select_indexs = self.get_select_indexs()
         if not self.select_indexs:
@@ -1167,14 +1172,21 @@ class UiTest(QMainWindow, Ui_MainWindow):
             dataHead = star.dataHead
             if dataHead["telemetry_source"] not in source_type.keys():
                 source_type[dataHead["telemetry_source"]] = {'star_list': collections.OrderedDict(),
-                                                             'appebdix_list': collections.OrderedDict()}
+                                                             'appendix_list': collections.OrderedDict()}
             if self.check_choice("source", dataHead["params_four"]):
+                # 判断参数值是否正确
+                threshold = dataHead['params_one'].replace("[", '').replace("]", '').replace(' ', '').replace('，', ',')
+                threshold = threshold.split(',')
+                is_true = self.check_param(threshold, dataHead['telemetry_num'])
+                if not is_true:
+                    return
                 source_type[dataHead["telemetry_source"]]['star_list'][index] = star
             else:
-                source_type[dataHead["telemetry_source"]]['appebdix_list'][index] = star
+                source_type[dataHead["telemetry_source"]]['appendix_list'][index] = star
 
         for type, ls in source_type.items():
-            star_list, appendix_list = ls.values()
+            star_list = ls['star_list']
+            appendix_list = ls['appendix_list']
             self.source_choice(star_list, appendix_list)
         end = time.time()
         print('源包剔野耗时: ', end - start)
@@ -1908,6 +1920,26 @@ class UiTest(QMainWindow, Ui_MainWindow):
         new_time = d + ' ' + h + ':' + m + ':00.00000'
         return new_time
 
+    def check_param(self, params, name):
+        is_ture = True
+        info = "参数1解析错误 \n" + name
+        if len(params) != 2:
+            is_ture = False
+            info = '参数1格式错误 \n' + name
+        try:
+            lower = float(params[0])
+            upper = float(params[1])
+            if lower > upper:
+                is_ture = False
+                info = '参数1最小值大于最大值 \n' + name
+        except:
+            is_ture = False
+
+        if not is_ture:
+            message_box = MyMessageBox()
+            message_box.setContent("参数错误", info)
+            message_box.exec_()
+        return is_ture
 
 class TimeAxisItem(pg.AxisItem):
     def tickStrings(self, values, scale, spacing):

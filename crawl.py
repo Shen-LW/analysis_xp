@@ -220,7 +220,7 @@ def crawl(satellite_data, username, password, model_name, telemetry_name, start_
         traceback.print_exc()
         # 对错误缓存文件进行删除
         satellite_data.delete_file()
-        return False, '读取程序总体异常捕捉：/n', satellite_data
+        return False, '读取程序总体异常捕捉', satellite_data
 
 
 
@@ -354,20 +354,25 @@ def parse_data(items):
             else:
                 if v is None:
                     is_delete = True
-                    continue
+                    break
                 if type(v) is int:
                     n_v = str(v) + '.' + '0' * (15 - len(str(v)))
                 elif 'e' in str(v):  # 大于+10次幂删除， 小于-10次幂取0
                     v_dec, v_pow = str(v).split('e')
                     if int(v_pow) > 10:
                         is_delete = True
-                        continue
+                        break
                     elif int(v_pow) < -10:
                         n_v = '0.00000000000000'
                     else:
                         pow_len = len(v_pow) + 1
                         dec_len = 16 - pow_len
-                        new_dec = v_dec[:dec_len] if len(v_dec) >= dec_len else v_dec + '0' * (dec_len - len(v_dec))
+                        if '.' not in v_dec:
+                            if len(v_dec) >= dec_len:
+                                print("爬取的数据出现意外情况: ", k, v)
+                            new_dec = v_dec[:dec_len] if len(v_dec) >= dec_len else v_dec + '.' + '0' * (dec_len - len(v_dec) - 1)
+                        else:
+                            new_dec = v_dec[:dec_len] if len(v_dec) >= dec_len else v_dec + '0' * (dec_len - len(v_dec))
                         n_v = new_dec + 'e' + v_pow
                 else:
                     n_v = str(v) + '0' * (16 - len(str(v)))
